@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(source:*)",
+      "Bash(ls:*)",
+      "Bash(python3:*)",
+      "Bash(sleep:*)",
+      "Bash(curl:*)",
+      "Bash(find:*)",
+      "Bash(kill:*)",
+      "Bash(cat:*)"
+    ]
+  }
+}

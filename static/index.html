@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MidiMind - 智能编曲助手</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg-primary: #09090b;
+            --bg-secondary: #18181b;
+            --bg-tertiary: #27272a;
+            --bg-card: rgba(39, 39, 42, 0.8);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-default: rgba(255, 255, 255, 0.1);
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent-primary: #8b5cf6;
+            --accent-secondary: #a78bfa;
+            --accent-gradient: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%);
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* ========== Header ========== */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background: rgba(9, 9, 11, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--accent-gradient);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .logo-text {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-tagline {
+            margin-left: 16px;
+            padding-left: 16px;
+            border-left: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* ========== Hero Section ========== */
+        .hero {
+            padding: 120px 24px 60px;
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: -0.02em;
+        }
+
+        .hero h1 span {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            line-height: 1.8;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-top: 40px;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            text-align: left;
+            transition: all 0.2s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(139, 92, 246, 0.15);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+        }
+
+        .feature-card h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .feature-card p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        /* ========== Main Layout ========== */
+        .main-container {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px 60px;
+            min-height: calc(100vh - 64px);
+        }
+
+        /* ========== Workspace Panel ========== */
+        .workspace {
+            position: sticky;
+            top: 88px;
+            height: fit-content;
+        }
+
+        .panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-body {
+            padding: 20px 24px;
+        }
+
+        /* Upload Area */
+        .upload-zone {
+            border: 2px dashed var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: 40px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: rgba(139, 92, 246, 0.03);
+        }
+
+        .upload-zone:hover {
+            border-color: var(--accent-primary);
+            background: rgba(139, 92, 246, 0.08);
+        }
+
+        .upload-zone.dragover {
+            border-color: var(--accent-primary);
+            background: rgba(139, 92, 246, 0.12);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 12px;
+        }
+
+        .upload-text {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .upload-hint {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* Selected File */
+        .selected-file {
+            display: none;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            margin-top: 16px;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .selected-file.visible {
+            display: flex;
+        }
+
+        .file-icon {
+            font-size: 1.5rem;
+        }
+
+        .file-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-name {
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-size {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .file-remove {
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 4px;
+            transition: color 0.2s;
+        }
+
+        .file-remove:hover {
+            color: var(--error);
+        }
+
+        /* Sample Files */
+        .sample-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .sample-title {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .sample-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .sample-item {
+            background: var(--bg-tertiary);
+            border: 1px solid transparent;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .sample-item:hover {
+            border-color: var(--accent-primary);
+        }
+
+        .sample-item.selected {
+            border-color: var(--accent-primary);
+            background: rgba(139, 92, 246, 0.15);
+        }
+
+        .sample-item-icon {
+            font-size: 1.25rem;
+            margin-bottom: 4px;
+        }
+
+        .sample-item-name {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        /* Ensemble Display */
+        .ensemble-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .ensemble-empty {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .ensemble-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .ensemble-card {
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            padding: 14px;
+            transition: all 0.2s;
+        }
+
+        .ensemble-card:hover {
+            background: rgba(139, 92, 246, 0.1);
+        }
+
+        .ensemble-card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .ensemble-card-icon {
+            font-size: 1.5rem;
+        }
+
+        .ensemble-card-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .ensemble-card-role {
+            display: inline-block;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            background: rgba(139, 92, 246, 0.2);
+            border-radius: 4px;
+            color: var(--accent-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .ensemble-card-instrument {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Playback Controls */
+        .playback-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .playback-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .play-btn {
+            width: 44px;
+            height: 44px;
+            background: var(--accent-gradient);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .play-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .play-btn:active {
+            transform: scale(0.98);
+        }
+
+        .progress-container {
+            flex: 1;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-gradient);
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        .progress-time {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Export Buttons */
+        .export-section {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .export-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .export-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 14px 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .export-btn:hover {
+            border-color: var(--accent-primary);
+            background: rgba(139, 92, 246, 0.1);
+        }
+
+        .export-btn-icon {
+            font-size: 1.25rem;
+            margin-bottom: 6px;
+        }
+
+        .export-btn-text {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* ========== Chat Area ========== */
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 88px);
+        }
+
+        .chat-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header-title {
+            font-weight: 600;
+        }
+
+        .conversation-id {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+        }
+
+        /* Chat Messages */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .chat-empty {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .chat-empty-icon {
+            font-size: 4rem;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .chat-empty-text {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+
+        .chat-empty-hint {
+            font-size: 0.9rem;
+        }
+
+        /* Message Styles */
+        .message {
+            max-width: 85%;
+        }
+
+        .message.user {
+            align-self: flex-end;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+
+        .message.user .message-avatar {
+            background: var(--accent-gradient);
+        }
+
+        .message.assistant .message-avatar {
+            background: var(--bg-tertiary);
+        }
+
+        .message-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .message-time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .message-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+        }
+
+        .message.user .message-content {
+            background: var(--accent-gradient);
+            border: none;
+        }
+
+        .message-text {
+            line-height: 1.7;
+        }
+
+        .message.user .message-text {
+            color: white;
+        }
+
+        /* AI Response Specifics */
+        .ai-response {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .ai-plan-summary {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: var(--radius-md);
+            padding: 16px;
+        }
+
+        .ai-plan-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ai-plan-ensemble {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .ai-plan-parts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .ai-plan-part {
+            background: rgba(139, 92, 246, 0.2);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+
+        .ai-midi-player {
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .ai-midi-info {
+            flex: 1;
+        }
+
+        .ai-midi-name {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .ai-midi-version {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Chat Input */
+        .chat-input-area {
+            padding: 20px 24px;
+            border-top: 1px solid var(--border-subtle);
+            background: var(--bg-secondary);
+        }
+
+        .intent-input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .intent-input {
+            flex: 1;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 14px 18px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            resize: none;
+            min-height: 52px;
+            max-height: 200px;
+            transition: all 0.2s;
+        }
+
+        .intent-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+        }
+
+        .intent-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .send-btn {
+            width: 48px;
+            height: 48px;
+            background: var(--accent-gradient);
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .send-btn:active {
+            transform: scale(0.98);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Status Log */
+        .status-log {
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.85rem;
+            max-height: 150px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .status-log.visible {
+            display: block;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .log-entry .time {
+            color: var(--text-muted);
+        }
+
+        .log-entry.success { color: var(--success); }
+        .log-entry.error { color: var(--error); }
+        .log-entry.info { color: var(--accent-secondary); }
+
+        /* Loading Animation */
+        .loading-dots {
+            display: flex;
+            gap: 4px;
+            padding: 8px 0;
+        }
+
+        .loading-dots span {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        /* Utility */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Responsive */
+        @media (max-width: 1100px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+
+            .workspace {
+                position: static;
+            }
+
+            .hero .features {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero .features {
+                grid-template-columns: 1fr;
+            }
+
+            .header-tagline {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">🎵</div>
+            <span class="logo-text">MidiMind</span>
+        </div>
+        <span class="header-tagline">MIDI 编曲工具 | 学音乐、教音乐、演音乐的人都在用</span>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero" id="heroSection">
+        <h1>将你的<span>MIDI</span>转化为精美编曲</h1>
+        <p>
+            给定一条旋律，快速生成专业编配版本<br>
+            支持难度调整、声部编制、试听对比
+        </p>
+
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">🎓</div>
+                <h3>音乐教育</h3>
+                <p>作曲作业配器参考、考级曲目难度调整、音乐课演示</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎻</div>
+                <h3>专业乐团</h3>
+                <p>指挥快速试听配器效果、排练前预览、室内乐改编</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎸</div>
+                <h3>器乐学习</h3>
+                <p>生成适合自己水平的演奏版本、慢速练习版、合奏配合版</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📥</div>
+                <h3>一键导出</h3>
+                <p>MIDI、MP3、PDF 乐谱，随时下载使用</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <section class="main-container" id="mainContent">
+        <!-- Workspace Panel -->
+        <div class="workspace">
+            <!-- Upload Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">
+                        <span>📁</span>
+                        <span>上传 MIDI</span>
+                    </span>
+                </div>
+                <div class="panel-body">
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="upload-icon">🎵</div>
+                        <div class="upload-text">点击或拖拽上传 MIDI 文件</div>
+                        <div class="upload-hint">支持 .mid 和 .midi 文件</div>
+                        <input type="file" id="fileInput" accept=".mid,.midi">
+                    </div>
+
+                    <div class="selected-file" id="selectedFile">
+                        <span class="file-icon">🎵</span>
+                        <div class="file-details">
+                            <div class="file-name" id="fileName">-</div>
+                            <div class="file-size" id="fileSize">-</div>
+                        </div>
+                        <span class="file-remove" onclick="removeFile()">✕</span>
+                    </div>
+
+                    <div class="sample-section">
+                        <div class="sample-title">或选择示例曲目</div>
+                        <div class="sample-list" id="sampleList">
+                            <!-- Samples loaded dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ensemble Panel -->
+            <div class="panel" style="margin-top: 16px;" id="ensemblePanel">
+                <div class="panel-header">
+                    <span class="panel-title">
+                        <span>🎻</span>
+                        <span>乐团组成</span>
+                    </span>
+                    <span class="conversation-id" id="ensembleCount">0 人</span>
+                </div>
+                <div class="panel-body">
+                    <div class="ensemble-empty" id="ensembleEmpty">
+                        暂无编曲方案，请在上方输入意图开始
+                    </div>
+                    <div class="ensemble-grid" id="ensembleGrid"></div>
+                </div>
+            </div>
+
+            <!-- Playback Panel -->
+            <div class="panel" style="margin-top: 16px;" id="playbackPanel">
+                <div class="panel-header">
+                    <span class="panel-title">
+                        <span>🎵</span>
+                        <span>播放控制</span>
+                    </span>
+                </div>
+                <div class="panel-body">
+                    <div class="playback-controls">
+                        <button class="play-btn" id="playBtn" onclick="togglePlayback()">▶</button>
+                        <div class="progress-container">
+                            <div class="progress-bar" id="progressBar" onclick="seekPlayback(event)">
+                                <div class="progress-fill" id="progressFill"></div>
+                            </div>
+                            <div class="progress-time">
+                                <span id="playTime">0:00</span>
+                                <span id="playDuration">0:00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export Panel -->
+            <div class="panel" style="margin-top: 16px;" id="exportPanel">
+                <div class="panel-header">
+                    <span class="panel-title">
+                        <span>📤</span>
+                        <span>导出</span>
+                    </span>
+                </div>
+                <div class="panel-body">
+                    <div class="export-grid">
+                        <button class="export-btn" onclick="downloadLatest()">
+                            <div class="export-btn-icon">⬇️</div>
+                            <div class="export-btn-text">MIDI</div>
+                        </button>
+                        <button class="export-btn" onclick="exportMP3()">
+                            <div class="export-btn-icon">🎵</div>
+                            <div class="export-btn-text">MP3</div>
+                        </button>
+                        <button class="export-btn" onclick="exportPDF()">
+                            <div class="export-btn-icon">📄</div>
+                            <div class="export-btn-text">PDF</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-area">
+            <div class="panel" style="height: 100%; display: flex; flex-direction: column; border-radius: var(--radius-xl);">
+                <div class="chat-header">
+                    <span class="chat-header-title">💬 编曲对话</span>
+                    <span class="conversation-id" id="conversationId">新会话</span>
+                </div>
+
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-empty" id="chatEmpty">
+                        <div class="chat-empty-icon">🎶</div>
+                        <div class="chat-empty-text">开始你的编曲之旅</div>
+                        <div class="chat-empty-hint">上传 MIDI 或选择示例曲目，然后描述你想要的编曲风格</div>
+                    </div>
+                </div>
+
+                <div class="chat-input-area">
+                    <div class="intent-input-wrapper">
+                        <textarea
+                            class="intent-input"
+                            id="userIntent"
+                            rows="1"
+                            placeholder="描述你想要的编曲... 例如：轻柔的室内乐版本，钢琴为主"
+                        >编一个标准的室内乐版本</textarea>
+                        <button class="send-btn" id="sendBtn" onclick="startConversation()">
+                            <span>➤</span>
+                        </button>
+                    </div>
+                    <div class="status-log" id="statusLog"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // ========== State ==========
+        let selectedFile = null;
+        let selectedSample = null;
+        let conversationId = null;
+        let currentVersionId = null;
+        let arrangementResult = null;
+
+        // Playback state
+        let outputBlob = null;
+        let outputDuration = 0;
+        let isPlaying = false;
+        let playbackInterval = null;
+        let elapsed = 0;
+
+        // ========== Initialize ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSamples();
+            setupUpload();
+            setupAutoResize();
+        });
+
+        // ========== Upload Handling ==========
+        function setupUpload() {
+            const uploadZone = document.getElementById('uploadZone');
+            const fileInput = document.getElementById('fileInput');
+
+            uploadZone.addEventListener('click', () => fileInput.click());
+
+            uploadZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadZone.classList.add('dragover');
+            });
+
+            uploadZone.addEventListener('dragleave', () => {
+                uploadZone.classList.remove('dragover');
+            });
+
+            uploadZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadZone.classList.remove('dragover');
+                const file = e.dataTransfer.files[0];
+                if (file) handleFileSelect(file);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) handleFileSelect(file);
+            });
+        }
+
+        function handleFileSelect(file) {
+            if (!file.name.match(/\.(mid|midi)$/i)) {
+                alert('请上传 .mid 或 .midi 文件');
+                return;
+            }
+
+            selectedFile = file;
+            selectedSample = null;
+
+            // Clear sample selection
+            document.querySelectorAll('.sample-item').forEach(el => el.classList.remove('selected'));
+
+            // Update UI
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+            document.getElementById('selectedFile').classList.add('visible');
+            document.getElementById('uploadZone').classList.add('hidden');
+
+            log('已选择文件: ' + file.name, 'info');
+        }
+
+        function removeFile() {
+            selectedFile = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('selectedFile').classList.remove('visible');
+            document.getElementById('uploadZone').classList.remove('hidden');
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // ========== Samples ==========
+        async function loadSamples() {
+            try {
+                const res = await fetch('/samples');
+                const data = await res.json();
+                const sampleList = document.getElementById('sampleList');
+
+                if (data.samples && data.samples.length > 0) {
+                    const targetNames = ['稻香', '匆匆那年', '浏阳河', '我和我的祖国'];
+                    const filteredSamples = data.samples.filter(s => targetNames.includes(s.name));
+
+                    filteredSamples.forEach((sample) => {
+                        const div = document.createElement('div');
+                        div.className = 'sample-item';
+                        div.dataset.filename = sample.filename;
+                        div.dataset.name = sample.name;
+                        div.innerHTML = `
+                            <div class="sample-item-icon">🎹</div>
+                            <div class="sample-item-name">${sample.name}</div>
+                        `;
+                        div.onclick = () => selectSample(sample, div);
+                        sampleList.appendChild(div);
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to load samples:', err);
+            }
+        }
+
+        function selectSample(sample, element) {
+            // Deselect all
+            document.querySelectorAll('.sample-item').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+
+            selectedSample = sample;
+            selectedFile = null;
+            document.getElementById('selectedFile').classList.remove('visible');
+            document.getElementById('uploadZone').classList.remove('hidden');
+
+            log('已选择示例: ' + sample.name + '，点击发送按钮开始编曲', 'info');
+            // 用户选择示例后，需要点击发送按钮才会开始编曲
+            // 不再自动发送，让用户有机会修改编曲意图
+        }
+
+        // ========== Auto Resize Textarea ==========
+        function setupAutoResize() {
+            const textarea = document.getElementById('userIntent');
+            textarea.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+            });
+        }
+
+        // ========== Conversation ==========
+        async function startConversation() {
+            if (!selectedFile && !selectedSample) {
+                alert('请先上传 MIDI 文件或选择示例曲目');
+                return;
+            }
+
+            const userIntent = document.getElementById('userIntent').value.trim();
+            if (!userIntent) {
+                alert('请输入编曲意图');
+                return;
+            }
+
+            log('开始编曲对话...', 'info');
+            document.getElementById('statusLog').classList.add('visible');
+
+            try {
+                // Create conversation
+                if (!conversationId) {
+                    const convFormData = new FormData();
+                    convFormData.append('user_intent', userIntent);
+
+                    const convRes = await fetch('/conversation', { method: 'POST', body: convFormData });
+                    const convData = await convRes.json();
+                    conversationId = convData.conversation_id;
+
+                    document.getElementById('conversationId').textContent = conversationId.substring(0, 8) + '...';
+                }
+
+                // Hide hero section
+                document.getElementById('heroSection').style.display = 'none';
+
+                // Add user message to chat
+                addChatMessage('user', userIntent);
+
+                // Show loading
+                const loadingMsg = addChatMessage('assistant', '', true);
+
+                // Prepare file for upload
+                const fileToUpload = selectedFile;
+                if (!fileToUpload && selectedSample) {
+                    // Download sample file
+                    const sampleRes = await fetch('/samples/' + selectedSample.filename);
+                    const sampleBlob = await sampleRes.blob();
+                    const sampleFile = new File([sampleBlob], selectedSample.filename, { type: 'audio/midi' });
+                    // Create a new FormData with the file
+                    const formData = new FormData();
+                    formData.append('message', userIntent);
+                    formData.append('midi_file', sampleFile);
+                    formData.append('include_trace', 'true');
+
+                    await sendMessage(formData, loadingMsg);
+                } else if (fileToUpload) {
+                    const formData = new FormData();
+                    formData.append('message', userIntent);
+                    formData.append('midi_file', selectedFile);
+                    formData.append('include_trace', 'true');
+
+                    await sendMessage(formData, loadingMsg);
+                }
+
+            } catch (err) {
+                log('错误: ' + err.message, 'error');
+                console.error(err);
+            }
+        }
+
+        async function sendMessage(formData, loadingMsg) {
+            try {
+                const res = await fetch(`/conversation/${conversationId}/message`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!res.ok) throw new Error('消息发送失败');
+
+                const data = await res.json();
+
+                // Remove loading message
+                loadingMsg.remove();
+
+                // Add assistant response (plan only, no MIDI player yet)
+                const assistantMsg = addChatMessage('assistant', '', false, data);
+
+                currentVersionId = data.version_id;
+                log('方案已生成 (v' + currentVersionId + ')', 'success');
+
+                // Execute arrangement
+                await executeArrangement(data, assistantMsg);
+
+            } catch (err) {
+                log('错误: ' + err.message, 'error');
+                loadingMsg.querySelector('.message-text').textContent = '发送失败，请重试';
+            }
+        }
+
+        async function executeArrangement(data, assistantMsg) {
+            log('执行编曲...', 'info');
+
+            try {
+                // Get the file that was used
+                let fileToUse = selectedFile;
+                if (!fileToUse && selectedSample) {
+                    const sampleRes = await fetch('/samples/' + selectedSample.filename);
+                    const sampleBlob = await sampleRes.blob();
+                    fileToUse = new File([sampleBlob], selectedSample.filename, { type: 'audio/midi' });
+                }
+
+                const planFormData = new FormData();
+                planFormData.append('file', fileToUse);
+                planFormData.append('user_intent', document.getElementById('userIntent').value);
+
+                const planRes = await fetch('/plan', { method: 'POST', body: planFormData });
+                const planData = await planRes.json();
+
+                const arrangeFormData = new FormData();
+                arrangeFormData.append('file', fileToUse);
+                arrangeFormData.append('plan_json', JSON.stringify(planData.plan));
+                arrangeFormData.append('melody_track', planData.analyze.melody_candidates[0]?.track_index || 0);
+
+                const arrangeRes = await fetch('/arrange', { method: 'POST', body: arrangeFormData });
+                arrangementResult = await arrangeRes.json();
+
+                // Store output blob for playback
+                if (arrangementResult.midi_data) {
+                    const binaryString = atob(arrangementResult.midi_data);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    outputBlob = new Blob([bytes], { type: 'audio/midi' });
+                }
+
+                // Update ensemble display
+                updateEnsembleDisplay(data.plan);
+
+                // Update assistant message with MIDI player
+                if (assistantMsg && arrangementResult.midi_data) {
+                    updateMessageWithMidiPlayer(assistantMsg, data.version_id);
+                }
+
+                log('编曲完成!', 'success');
+
+            } catch (err) {
+                log('编曲执行错误: ' + err.message, 'error');
+                // Update the placeholder to show error
+                if (assistantMsg) {
+                    const playerPlaceholder = assistantMsg.querySelector('#midiPlayerPlaceholder');
+                    if (playerPlaceholder) {
+                        playerPlaceholder.innerHTML = `
+                            <div style="color: var(--error); font-size: 0.9rem;">
+                                <span>❌</span> 编曲失败，请重试
+                            </div>
+                        `;
+                    }
+                }
+            }
+        }
+
+        // ========== Chat UI ==========
+        function addChatMessage(role, text, isLoading = false, data = null) {
+            const chatMessages = document.getElementById('chatMessages');
+            const chatEmpty = document.getElementById('chatEmpty');
+
+            if (chatEmpty) chatEmpty.style.display = 'none';
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            const avatar = role === 'user' ? '👤' : '🤖';
+            const name = role === 'user' ? '你' : 'MidiMind';
+
+            let content = '';
+
+            if (isLoading) {
+                content = `
+                    <div class="message-header">
+                        <div class="message-avatar">${avatar}</div>
+                        <span class="message-name">${name}</span>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-text">
+                            <div class="loading-dots">
+                                <span></span><span></span><span></span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (role === 'assistant' && data) {
+                const plan = data.plan;
+                const ensemble = plan?.ensemble;
+                const versionId = data.version_id;
+
+                content = `
+                    <div class="message-header">
+                        <div class="message-avatar">${avatar}</div>
+                        <span class="message-name">${name}</span>
+                        <span class="message-time">v${versionId}</span>
+                    </div>
+                    <div class="message-content">
+                        <div class="ai-response">
+                            <div class="ai-plan-summary">
+                                <div class="ai-plan-title">
+                                    <span>🎻</span>
+                                    <span>${ensemble?.name || '编曲方案'}</span>
+                                </div>
+                                <div class="ai-plan-ensemble">
+                                    ${ensemble?.size || 'medium'} 编制 · ${ensemble?.parts?.length || 0} 人
+                                </div>
+                                <div class="ai-plan-parts">
+                                    ${(ensemble?.parts || []).map(p => `
+                                        <span class="ai-plan-part">${p.name || p.id} (${p.role})</span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            <div class="ai-midi-player" id="midiPlayerPlaceholder">
+                                <div style="color: var(--text-muted); font-size: 0.9rem;">正在生成 MIDI...</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                content = `
+                    <div class="message-header">
+                        <div class="message-avatar">${avatar}</div>
+                        <span class="message-name">${name}</span>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-text">${text}</div>
+                    </div>
+                `;
+            }
+
+            messageDiv.innerHTML = content;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            return messageDiv;
+        }
+
+        // ========== Ensemble Display ==========
+        function updateEnsembleDisplay(plan) {
+            const ensemble = plan?.ensemble;
+            const parts = ensemble?.parts || [];
+
+            document.getElementById('ensembleCount').textContent = parts.length + ' 人';
+
+            const emptyEl = document.getElementById('ensembleEmpty');
+            const gridEl = document.getElementById('ensembleGrid');
+
+            if (parts.length === 0) {
+                emptyEl.style.display = 'block';
+                gridEl.innerHTML = '';
+                return;
+            }
+
+            emptyEl.style.display = 'none';
+
+            const instrumentIcons = {
+                'violin': '🎻', 'viola': '🎻', 'cello': '🎻',
+                'flute': '🪈', 'oboe': '🪈', 'clarinet': '🪈', 'bassoon': '🪈',
+                'trumpet': '🎺', 'horn': '🎺', 'trombone': '🎺', 'tuba': '🎺',
+                'piano': '🎹', 'guitar': '🎸', 'bass': '🎸',
+                'drums': '🥁', 'percussion': '🥁', 'timpani': '🥁'
+            };
+
+            gridEl.innerHTML = parts.map(part => `
+                <div class="ensemble-card">
+                    <div class="ensemble-card-header">
+                        <span class="ensemble-card-icon">${instrumentIcons[part.instrument] || '🎵'}</span>
+                        <span class="ensemble-card-name">${part.name || part.id}</span>
+                    </div>
+                    <span class="ensemble-card-role">${part.role}</span>
+                    <div class="ensemble-card-instrument">${part.instrument}</div>
+                </div>
+            `).join('');
+        }
+
+        // ========== Update Message with MIDI Player ==========
+        function updateMessageWithMidiPlayer(messageEl, versionId) {
+            const playerPlaceholder = messageEl.querySelector('#midiPlayerPlaceholder');
+            if (playerPlaceholder) {
+                playerPlaceholder.innerHTML = `
+                    <button class="play-btn" style="width:36px;height:36px;font-size:0.9rem;" onclick="toggleOutputPlayback()">▶</button>
+                    <div class="ai-midi-info">
+                        <div class="ai-midi-name">arranged.mid</div>
+                        <div class="ai-midi-version">版本 ${versionId}</div>
+                    </div>
+                    <button class="export-btn" style="padding:8px 12px;" onclick="downloadLatest()">
+                        <span>⬇️</span>
+                    </button>
+                `;
+            }
+        }
+
+        // ========== Playback ==========
+        let midiPlayer = null;
+        let midi = null;
+        let audioContext = null;
+
+        function toggleOutputPlayback() {
+            if (isPlaying) {
+                pausePlayback();
+            } else {
+                startPlayback();
+            }
+        }
+
+        function startPlayback() {
+            if (!arrangementResult?.midi_data) {
+                log('暂无可播放的音频', 'error');
+                return;
+            }
+
+            try {
+                // Stop any current playback
+                pausePlayback();
+
+                // Decode base64 MIDI data
+                const binaryString = atob(arrangementResult.midi_data);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+
+                // Parse MIDI using @tonejs/midi
+                midi = new Midi(bytes.buffer);
+
+                if (!midi.duration) {
+                    log('无法获取 MIDI 时长', 'error');
+                    startDemoPlayback();
+                    return;
+                }
+
+                outputDuration = Math.floor(midi.duration);
+                document.getElementById('playDuration').textContent = formatTime(outputDuration);
+
+                // Initialize AudioContext for playback
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                // Create a simple oscillator-based playback since soundfonts are complex
+                // For a real implementation, you'd use soundfont-player or similar
+                playMidiWithWebAudio(midi);
+
+            } catch (err) {
+                console.error('Playback error:', err);
+                log('播放失败，使用模拟模式', 'error');
+                startDemoPlayback();
+            }
+        }
+
+        function playMidiWithWebAudio(midiData) {
+            // This is a simplified playback - real implementation would use soundfonts
+            // For now, we just show the progress based on MIDI duration
+
+            isPlaying = true;
+            document.getElementById('playBtn').textContent = '⏸';
+            log('播放中...', 'info');
+
+            elapsed = 0;
+            updateProgress();
+
+            playbackInterval = setInterval(() => {
+                elapsed++;
+                updateProgress();
+                if (elapsed >= outputDuration) {
+                    pausePlayback();
+                }
+            }, 1000);
+        }
+
+        function startDemoPlayback() {
+            isPlaying = true;
+            document.getElementById('playBtn').textContent = '⏸';
+            outputDuration = 180;
+            document.getElementById('playDuration').textContent = formatTime(outputDuration);
+            log('播放中 (模拟模式)...', 'info');
+
+            playbackInterval = setInterval(() => {
+                elapsed++;
+                updateProgress();
+                if (elapsed >= outputDuration) {
+                    pausePlayback();
+                }
+            }, 1000);
+        }
+
+        function pausePlayback() {
+            isPlaying = false;
+
+            if (playbackInterval) {
+                clearInterval(playbackInterval);
+                playbackInterval = null;
+            }
+
+            document.getElementById('playBtn').textContent = '▶';
+        }
+
+        function togglePlayback() {
+            toggleOutputPlayback();
+        }
+
+        function updateProgress() {
+            const percent = outputDuration > 0 ? (elapsed / outputDuration) * 100 : 0;
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('playTime').textContent = formatTime(elapsed);
+        }
+
+        function seekPlayback(event) {
+            const bar = document.getElementById('progressBar');
+            const rect = bar.getBoundingClientRect();
+            const percent = (event.clientX - rect.left) / rect.width;
+            elapsed = Math.floor(percent * outputDuration);
+            updateProgress();
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // ========== Export ==========
+        function downloadLatest() {
+            if (!arrangementResult?.midi_data) {
+                log('暂无 MIDI 数据', 'error');
+                return;
+            }
+
+            const binaryString = atob(arrangementResult.midi_data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            const blob = new Blob([bytes], { type: 'audio/midi' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'arranged.mid';
+            a.click();
+            URL.revokeObjectURL(url);
+
+            log('MIDI 已下载', 'success');
+        }
+
+        function exportMP3() {
+            log('MP3 导出功能开发中...', 'info');
+        }
+
+        function exportPDF() {
+            log('PDF 导出功能开发中...', 'info');
+        }
+
+        // ========== Status Log ==========
+        function log(message, type = 'info') {
+            const statusLog = document.getElementById('statusLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="time">[${time}]</span> ${message}`;
+
+            statusLog.appendChild(entry);
+            statusLog.scrollTop = statusLog.scrollHeight;
+        }
+    </script>
+</body>
+</html>
