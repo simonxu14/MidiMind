@@ -92,10 +92,12 @@ class Broken8thsTemplate(BaseTemplate):
             # P1: 获取该小节的 mode，驱动参数调整
             mode = section_modes.get(measure_idx, 'A')
 
-            # 根据 mode 调整密度和力度
+            # 根据 mode 调整密度和力度（使用局部变量避免跨小节漂移）
             mode_density = density
             mode_velocity = velocity_base
             mode_syncopation = syncopation
+            local_pitch_min = pitch_min
+            local_pitch_max = pitch_max
 
             if mode == "B":
                 # B mode: 增加切分感
@@ -109,9 +111,9 @@ class Broken8thsTemplate(BaseTemplate):
                 # D mode: 最大密度，强劲力度
                 mode_density = min(density * 1.5, 1.0)
                 mode_velocity = min(velocity_base + 10, 80)
-                # D mode 可以升高一个八度
-                pitch_min = min(pitch_min + 12, 72)
-                pitch_max = min(pitch_max + 12, 84)
+                # D mode 可以升高一个八度（使用局部变量）
+                local_pitch_min = min(pitch_min + 12, 72)
+                local_pitch_max = min(pitch_max + 12, 84)
 
             root = chord_info.root
             third = chord_info.third
@@ -140,10 +142,10 @@ class Broken8thsTemplate(BaseTemplate):
                 # 选择音高（在和弦音范围内）
                 pitch = positions[beat % len(positions)]
 
-                # 调整到目标音区
-                while pitch < pitch_min:
+                # 调整到目标音区（使用局部变量）
+                while pitch < local_pitch_min:
                     pitch += 12
-                while pitch > pitch_max:
+                while pitch > local_pitch_max:
                     pitch -= 12
 
                 # 计算力度（强拍更强）

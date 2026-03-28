@@ -774,9 +774,9 @@ class OrchestrateExecutor:
 
                 # P2-3: 记录模板选择
                 self._report_stats["template_per_part"][part.id] = chosen_name
-                # P2-2: 记录 per-measure 的模板
+                # P2-2: 记录 per-measure 的模板（使用字符串 key 便于 JSON 序列化）
                 if measure_idx is not None:
-                    self._report_stats["template_per_measure"][(part.id, measure_idx)] = chosen_name
+                    self._report_stats["template_per_measure"][f"{part.id}#m{measure_idx}"] = chosen_name
 
                 template = self.template_registry.get(chosen_name)
                 if template:
@@ -959,7 +959,8 @@ class OrchestrateExecutor:
         all_notes: List[NoteEvent] = []
         sorted_measures = sorted(context.chord_per_measure.keys())
 
-        for measure_idx in sorted_measures:
+        # P1 优化：使用 enumerate 避免 O(n²) 的 index 查找
+        for i, measure_idx in enumerate(sorted_measures):
             # 获取该小节的 mode
             mode = context.section_modes.get(measure_idx, 'A')
 
@@ -971,15 +972,10 @@ class OrchestrateExecutor:
             sub_context.current_mode = mode
 
             # 获取 prev_chord_root（上一小节的根音）用于声部连接
-            # 找到当前小节在排序列表中的位置
-            try:
-                curr_pos = sorted_measures.index(measure_idx)
-                if curr_pos > 0:
-                    prev_measure_idx = sorted_measures[curr_pos - 1]
-                    sub_context.prev_chord_root = context.chord_per_measure[prev_measure_idx].root
-                else:
-                    sub_context.prev_chord_root = None
-            except (ValueError, KeyError):
+            if i > 0:
+                prev_measure_idx = sorted_measures[i - 1]
+                sub_context.prev_chord_root = context.chord_per_measure[prev_measure_idx].root
+            else:
                 sub_context.prev_chord_root = None
 
             # P1: 根据当前小节的 mode 选择模板（窗口缓存会正常工作）
@@ -1535,7 +1531,7 @@ class OrchestrateExecutor:
         }
 
         # 2. Piano template per measure
-        # 这需要从钢琴声部的模板参数中推断
+        # 从真实的 template_per_measure 统计推导
         piano_part_id = None
         for part in self.ensemble.parts:
             if part.instrument and "piano" in part.instrument.lower():
@@ -1547,15 +1543,14 @@ class OrchestrateExecutor:
             measure_len = arrangement_context.measure_len
             for measure_idx, chord_info in arrangement_context.chord_per_measure.items():
                 measure_start = measure_idx * measure_len
-                # 统计该小节的钢琴音符数量来判断模板类型
+                # 统计该小节的钢琴音符数量
                 notes_in_measure = [
                     n for n in piano_notes
                     if measure_start <= n[0] < measure_start + measure_len
                 ]
-                density = len(notes_in_measure) / 4  # 简化的密度估算
-                template_name = "unknown"
-                if piano_part_id in self._report_stats["template_per_part"]:
-                    template_name = self._report_stats["template_per_part"][piano_part_id]
+                # 从 template_per_measure 获取该小节的真实模板名
+                key = f"{piano_part_id}#m{measure_idx}"
+                template_name = self._report_stats["template_per_measure"].get(key, "unknown")
                 report["piano_template_per_measure"][f"measure_{measure_idx}"] = {
                     "template": template_name,
                     "note_count": len(notes_in_measure),
