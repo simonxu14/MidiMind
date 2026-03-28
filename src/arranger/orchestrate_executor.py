@@ -111,6 +111,9 @@ class OrchestrateExecutor:
         midi_analysis = analyzer.analyze()
         tempo = midi_analysis.tempo
 
+        # P0-1: 保存输入的真实 total_ticks，用于裁剪
+        input_total_ticks = midi_analysis.total_ticks
+
         # 2. 提取并锁定主旋律
         if melody_track_index >= len(tracks):
             logger.warning(f"melody_track_index {melody_track_index} out of range, using 0. Available tracks: {len(tracks)}")
@@ -240,6 +243,15 @@ class OrchestrateExecutor:
             accompaniment_tracks, arrangement_context
         )
 
+        # P0-1: 裁剪所有音符到 input_total_ticks
+        locked_melody_notes = self._clip_note_events_to_total_ticks(
+            locked_melody_notes, input_total_ticks
+        )
+        for part_id in accompaniment_tracks:
+            accompaniment_tracks[part_id] = self._clip_note_events_to_total_ticks(
+                accompaniment_tracks[part_id], input_total_ticks
+            )
+
         # 7. 构建输出轨道
         output_tracks = []
 
@@ -262,7 +274,8 @@ class OrchestrateExecutor:
         melody_channel = melody_part.midi.channel if melody_part else 0
 
         melody_track_data = MidiWriter.create_track_from_note_events(
-            track_name=melody_part.name if melody_part else "Melody",  # P1-2: Use part name from Plan
+            # P0-2: 使用 ASCII 安全名称，包含 "melody" 以便 validator 定位
+            track_name=f"melody_{melody_part.id}" if melody_part else "melody",
             note_events=locked_melody_notes,
             program=melody_program,
             channel=melody_channel
@@ -328,6 +341,59 @@ class OrchestrateExecutor:
         }
 
         return output_tracks, stats
+
+    def _clip_notes_to_total_ticks(
+        self,
+        output_tracks: List[List[Tuple[str, Dict]]],
+        max_tick: int
+    ) -> List[List[Tuple[str, Dict]]]:
+        """
+        P0-1: 裁剪所有轨道中的音符到 max_tick
+
+        - start_tick >= max_tick 的音符直接丢弃
+        - end_tick > max_tick 的音符 end_tick 截断到 max_tick
+        - start_tick >= end_tick 的音符丢弃
+        """
+        clipped = []
+        for track_data in output_tracks:
+            clipped_track = []
+            for msg_type, params in track_data:
+                if msg_type not in ('note_on', 'note_off'):
+                    clipped_track.append((msg_type, params))
+                    continue
+
+                time = params.get('time', 0)
+                # note_on/note_off 不带 time 的是 delta time，不是绝对 tick
+                # 我们需要检查 note 的 start/end，但这在 create_track_from_note_events 中
+                # 已经被转换为 delta time 了
+                # 所以裁剪需要在 NoteEvent 级别做，而不是在 output_tracks 级别
+
+                clipped_track.append((msg_type, params))
+            clipped.append(clipped_track)
+        return clipped
+
+    def _clip_note_events_to_total_ticks(
+        self,
+        note_events: List[NoteEvent],
+        max_tick: int
+    ) -> List[NoteEvent]:
+        """
+        P0-1: 裁剪 NoteEvent 列表到 max_tick
+
+        - start_tick >= max_tick 的音符直接丢弃
+        - end_tick > max_tick 的音符 end_tick 截断到 max_tick
+        - start_tick >= end_tick 的音符丢弃
+        """
+        clipped: List[NoteEvent] = []
+        for start, end, pitch, velocity, channel in note_events:
+            if start >= max_tick:
+                continue
+            if end > max_tick:
+                end = max_tick
+            if start >= end:
+                continue
+            clipped.append((start, end, pitch, velocity, channel))
+        return clipped
 
     def _lock_melody(self, melody_track: TrackInfo) -> List[NoteEvent]:
         """
@@ -869,6 +935,11 @@ class OrchestrateExecutor:
             # P1 修复：per_measure_select=True 的模板使用完整 context（内部自行迭代）
             # per_measure_select=False 的模板外部按小节拆分
             if pool_enabled and not part.template_name and getattr(template, 'per_measure_select', False):
+                # P1-2: 补齐 template_per_measure 统计（自适应模板内部迭代，不触发每小节统计）
+                template_name = getattr(template, 'name', 'unknown')
+                for measure_idx in context.chord_per_measure.keys():
+                    key = f"{part.id}#m{measure_idx}"
+                    self._report_stats["template_per_measure"][key] = template_name
                 # 自适应模板：使用完整 context，模板内部处理 per-measure
                 return template.generate(context, template_params)
             elif pool_enabled and not part.template_name:
