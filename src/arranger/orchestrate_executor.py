@@ -80,6 +80,7 @@ class OrchestrateExecutor:
         # P2-3: Arrangement report 统计
         self._report_stats = {
             "template_per_part": {},  # part_id -> template_name
+            "template_per_measure": {},  # (part_id, measure_idx) -> template_name
             "onset_avoidance_hits": 0,  # onset 降速次数
             "velocity_cap_hits": 0,  # velocity cap 命中次数
             "percussion_hits": {"timpani": 0, "triangle": 0},  # percussion 命中次数
@@ -698,10 +699,15 @@ class OrchestrateExecutor:
     def _select_template_for_part(
         self,
         part: PartSpec,
-        context: ArrangementContext
+        context: ArrangementContext,
+        measure_idx: Optional[int] = None
     ):
         """
         根据当前模式选择模板
+
+        P2-2: 使用窗口切换策略
+        - variation_window: 稳定窗口大小（默认 4 小节）
+        - variation_strength: 窗口切换概率 p_switch
 
         使用 PianoTemplatePool 按模式选择模板
         """
@@ -724,18 +730,53 @@ class OrchestrateExecutor:
             mode_templates = getattr(template_pool, current_mode, None)
 
             if mode_templates:
-                # 使用 variation_strength 决定是否随机选择
+                # P2-2: 窗口切换策略
+                variation_window = 4  # 默认 4 小节窗口
+                if hasattr(self.plan.arrangement, 'variation_window'):
+                    variation_window = self.plan.arrangement.variation_window
+
                 variation_strength = self.plan.arrangement.variation_strength if self.plan.arrangement else 0.8
 
-                if random.random() < variation_strength and len(mode_templates) > 1:
-                    # 随机选择一个模板
-                    chosen_name = random.choice(mode_templates)
+                # 计算当前窗口索引
+                if measure_idx is not None:
+                    window_idx = measure_idx // variation_window
                 else:
-                    # 使用第一个模板
-                    chosen_name = mode_templates[0]
+                    window_idx = 0
+
+                # 构建窗口唯一键
+                window_key = (part.id, current_mode, window_idx)
+
+                # 检查是否已选择过该窗口的模板
+                if not hasattr(self, '_template_window_cache'):
+                    self._template_window_cache = {}
+
+                if window_key in self._template_window_cache:
+                    # 使用缓存的模板
+                    chosen_name = self._template_window_cache[window_key]
+                else:
+                    # 窗口边界：决定是否切换模板
+                    if len(mode_templates) > 1:
+                        # variation_strength 作为切换概率
+                        if random.random() < variation_strength:
+                            chosen_name = random.choice(mode_templates)
+                        else:
+                            # 保持相同模板（如果之前有缓存）
+                            prev_window_key = (part.id, current_mode, window_idx - 1)
+                            if prev_window_key in self._template_window_cache:
+                                chosen_name = self._template_window_cache[prev_window_key]
+                            else:
+                                chosen_name = mode_templates[0]
+                    else:
+                        chosen_name = mode_templates[0]
+
+                    # 缓存选择
+                    self._template_window_cache[window_key] = chosen_name
 
                 # P2-3: 记录模板选择
                 self._report_stats["template_per_part"][part.id] = chosen_name
+                # P2-2: 记录 per-measure 的模板
+                if measure_idx is not None:
+                    self._report_stats["template_per_measure"][(part.id, measure_idx)] = chosen_name
 
                 template = self.template_registry.get(chosen_name)
                 if template:
@@ -1385,6 +1426,7 @@ class OrchestrateExecutor:
         report = {
             "section_modes": {},
             "piano_template_per_measure": {},
+            "template_per_measure": self._report_stats["template_per_measure"].copy(),
             "guards_stats": {
                 "onset_avoidance_hits": self._report_stats["onset_avoidance_hits"],
                 "velocity_cap_hits": self._report_stats["velocity_cap_hits"],

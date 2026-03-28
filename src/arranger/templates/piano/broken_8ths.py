@@ -57,6 +57,12 @@ class Broken8thsTemplate(BaseTemplate):
         生成分解八分音符
 
         模式：根音 - 五音 - 三音 - 五音（在和弦内）
+
+        Per-measure mode support:
+        - A mode: 标准密度，保持清晰
+        - B mode: 增加切分感
+        - C mode: 增加密度，升高音区
+        - D mode: 最大密度，强劲力度
         """
         # 合并默认参数
         p = {**self.default_params, **params}
@@ -77,8 +83,35 @@ class Broken8thsTemplate(BaseTemplate):
         notes: List[NoteEvent] = []
         channel = 0  # 默认 channel，后续由 caller 设置
 
+        # Per-measure mode-driven adjustments
+        section_modes = getattr(context, 'section_modes', {})
+
         # 遍历每个小节
         for measure_idx, chord_info in context.chord_per_measure.items():
+            # P1: 获取该小节的 mode，驱动参数调整
+            mode = section_modes.get(measure_idx, 'A')
+
+            # 根据 mode 调整密度和力度
+            mode_density = density
+            mode_velocity = velocity_base
+            mode_syncopation = syncopation
+
+            if mode == "B":
+                # B mode: 增加切分感
+                mode_syncopation = max(mode_syncopation, 0.3)
+                mode_density = min(density * 1.1, 1.0)
+            elif mode == "C":
+                # C mode: 增加密度，升高音区
+                mode_density = min(density * 1.3, 1.0)
+                mode_velocity = min(velocity_base + 5, 70)
+            elif mode == "D":
+                # D mode: 最大密度，强劲力度
+                mode_density = min(density * 1.5, 1.0)
+                mode_velocity = min(velocity_base + 10, 80)
+                # D mode 可以升高一个八度
+                pitch_min = min(pitch_min + 12, 72)
+                pitch_max = min(pitch_max + 12, 84)
+
             root = chord_info.root
             third = chord_info.third
             fifth = chord_info.fifth
@@ -93,13 +126,13 @@ class Broken8thsTemplate(BaseTemplate):
                 pos_in_measure = beat * eight_note
 
                 # 根据密度决定是否跳过
-                if beat > 0 and density < 1.0:
-                    if random.random() > density:
+                if beat > 0 and mode_density < 1.0:
+                    if random.random() > mode_density:
                         continue
 
                 # 应用切分（改变重音位置）
                 tick = measure_start + pos_in_measure
-                if syncopation > 0 and beat == 1:
+                if mode_syncopation > 0 and beat == 1:
                     # 切分：把弱拍音提前到前一拍的尾部
                     tick = measure_start + (beat - 1) * eight_note + eight_note - 1
 
@@ -114,11 +147,11 @@ class Broken8thsTemplate(BaseTemplate):
 
                 # 计算力度（强拍更强）
                 if beat == 0:
-                    velocity = velocity_base + velocity_range // 2
+                    velocity = mode_velocity + velocity_range // 2
                 elif beat == 2:
-                    velocity = velocity_base + velocity_range // 4
+                    velocity = mode_velocity + velocity_range // 4
                 else:
-                    velocity = velocity_base - velocity_range // 4
+                    velocity = mode_velocity - velocity_range // 4
 
                 velocity = max(20, min(127, velocity))
 

@@ -295,7 +295,10 @@ class Validator:
         input_tracks: List[TrackInfo],
         output_tracks: List[List[Tuple[str, Dict]]]
     ) -> CheckResult:
-        """检查总 tick 数是否一致"""
+        """检查总 tick 数是否一致
+
+        P1-2 修复: output_total 使用最终的 current_time，而不是只从 note_off 计算
+        """
         # 计算输入总 tick
         input_total = 0
         for track in input_tracks:
@@ -303,17 +306,15 @@ class Validator:
                 track_end = max(n.end_tick for n in track.notes)
                 input_total = max(input_total, track_end)
 
-        # 计算输出总 tick
+        # P1-2: 计算输出总 tick - 使用最终的 current_time
         output_total = 0
         for track_data in output_tracks:
-            track_end = 0
             current_time = 0
             for msg_type, params in track_data:
                 if 'time' in params:
                     current_time += params['time']
-                    if msg_type == 'note_off':
-                        track_end = max(track_end, current_time)
-            output_total = max(output_total, track_end)
+            # P1-2: 使用最终的 current_time，而不是只看 note_off
+            output_total = max(output_total, current_time)
 
         if not self.constraints.keep_total_ticks:
             return CheckResult(passed=True, message="Total ticks check skipped")

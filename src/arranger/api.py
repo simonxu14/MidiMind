@@ -452,10 +452,12 @@ async def arrange(
         output_filename = f"arranged_{uuid.uuid4().hex[:8]}.mid"
         output_path = STORAGE_DIR / output_filename
 
+        # P1-2: 传入 total_ticks 以便正确补齐 end_of_track
         output_data = MidiWriter.write_midi(
             tracks=output_tracks,
             tempo=tempo,
-            time_signature=time_signature
+            time_signature=time_signature,
+            total_ticks=midi_analysis.total_ticks
         )
 
         with open(output_path, "wb") as f:

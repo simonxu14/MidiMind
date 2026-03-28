@@ -44,6 +44,8 @@ class BaseTemplate(ABC):
         Args:
             context: 编排上下文（和声、调性、节拍等）
             params: 模板参数
+            measure_range: 可选的 (start_measure, end_measure) 元组，
+                          如果指定则只生成该范围内的音符（用于 per-measure 模式切换）
 
         Returns:
             音符事件列表

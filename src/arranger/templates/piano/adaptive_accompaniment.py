@@ -1,7 +1,13 @@
 """
 Piano: Adaptive Accompaniment 模板
 
-自适应伴奏型：根据风格和速度动态调整的伴奏
+自适应伴奏型：根据风格和 mode 动态调整的伴奏
+
+P1 修改：支持 per-measure mode 驱动
+- A mode: 轻柔透明，稀疏和弦
+- B mode: 流动跳跃，切分节奏
+- C mode: 明亮活跃，高密度
+- D mode: 强劲饱满，最高密度
 """
 
 from __future__ import annotations
@@ -20,11 +26,11 @@ class AdaptiveAccompanimentTemplate(BaseTemplate):
     适用于：钢琴
     适用于角色：accompaniment, inner_voice
 
-    根据 tempo 和 style 动态调整伴奏模式：
-    - ballad: 稀疏、柔和的和弦
-    - general: 平衡的分解和弦
-    - upbeat: 活跃的八分音符
-    - dance: 强劲的节奏型
+    根据 section mode 动态调整伴奏模式：
+    - A: 轻柔透明
+    - B: 流动跳跃
+    - C: 明亮活跃
+    - D: 强劲饱满
     """
 
     name = "adaptive_accompaniment"
@@ -55,7 +61,7 @@ class AdaptiveAccompanimentTemplate(BaseTemplate):
         """
         生成自适应伴奏
 
-        根据风格和速度选择最佳伴奏模式
+        P1: Per-measure mode 驱动参数调整
         """
         p = {**self.default_params, **params}
         density = p["density"]
@@ -71,11 +77,9 @@ class AdaptiveAccompanimentTemplate(BaseTemplate):
         ticks_per_beat = context.ticks_per_beat
         quarter_note = ticks_per_beat
         eighth_note = ticks_per_beat // 2
-        sixteenth_note = ticks_per_beat // 4
 
-        # 根据风格选择模式
-        style = getattr(context, 'style', 'general')
-        tempo = getattr(context, 'tempo', 120)
+        # Per-measure mode-driven adjustments
+        section_modes = getattr(context, 'section_modes', {})
 
         notes: List[NoteEvent] = []
         channel = 0
@@ -84,6 +88,44 @@ class AdaptiveAccompanimentTemplate(BaseTemplate):
         prev_root = getattr(context, 'prev_chord_root', None)
 
         for measure_idx, chord_info in context.chord_per_measure.items():
+            # P1: 获取该小节的 mode，驱动参数调整
+            mode = section_modes.get(measure_idx, 'A')
+
+            # 根据 mode 调整本地参数
+            local_density = density
+            local_velocity = velocity_base
+            local_note_duration = eighth_note * 0.8
+            positions = [(0, 0), (eighth_note, 0), (quarter_note, 0), (quarter_note * 2 + eighth_note, 0),
+                        (quarter_note * 3, 0)]
+
+            if mode == "A":
+                # A mode: 轻柔透明，稀疏和弦
+                local_density = density * 0.5
+                positions = [(0, quarter_note * 2), (quarter_note * 2, quarter_note * 3)]
+                local_note_duration = quarter_note * 1.5
+            elif mode == "B":
+                # B mode: 流动跳跃，增加切分
+                local_density = min(density * 1.2, 1.0)
+                local_velocity = min(velocity_base + 5, 68)
+                # 切分节奏
+                positions = [(0, 0), (eighth_note, 0), (quarter_note, 0), (quarter_note + eighth_note, 0),
+                            (quarter_note * 2, 0), (quarter_note * 2 + eighth_note, 0), (quarter_note * 3, 0)]
+                local_note_duration = eighth_note * 0.6
+            elif mode == "C":
+                # C mode: 明亮活跃，高密度
+                local_density = min(density * 1.3, 1.0)
+                local_velocity = min(velocity_base + 8, 72)
+                positions = [(0, 0), (eighth_note, 0), (quarter_note, 0), (quarter_note + eighth_note, 0),
+                            (quarter_note * 2, 0), (quarter_note * 2 + eighth_note, 0), (quarter_note * 3, 0)]
+                local_note_duration = eighth_note * 0.75
+            elif mode == "D":
+                # D mode: 强劲饱满，最高密度
+                local_density = min(density * 1.5, 1.0)
+                local_velocity = min(velocity_base + 12, 78)
+                positions = [(0, 0), (eighth_note, 0), (quarter_note, 0), (quarter_note + eighth_note, 0),
+                            (quarter_note * 2, 0), (quarter_note * 2 + eighth_note, 0), (quarter_note * 3, 0)]
+                local_note_duration = eighth_note * 0.8
+
             root = chord_info.root
             third = chord_info.third
             fifth = chord_info.fifth
@@ -91,26 +133,7 @@ class AdaptiveAccompanimentTemplate(BaseTemplate):
 
             measure_start = measure_idx * measure_len
 
-            # 根据风格选择节奏模式
-            if style == "ballad":
-                # Ballad: 稀疏、慢节奏，每小节2-4个音
-                positions = [(0, quarter_note * 2), (quarter_note * 2, quarter_note * 3)]
-                note_duration = quarter_note * 1.5
-                local_density = density * 0.5
-            elif style == "dance":
-                # Dance: 强劲节奏，每拍都弹
-                positions = [(0, 0), (eighth_note, 0), (quarter_note, 0), (quarter_note + eighth_note, 0),
-                            (quarter_note * 2, 0), (quarter_note * 2 + eighth_note, 0), (quarter_note * 3, 0)]
-                note_duration = eighth_note * 0.7
-                local_density = density
-            else:
-                # General/Upbeat: 平衡模式
-                positions = [(0, 0), (eighth_note, 0), (quarter_note, 0), (quarter_note * 2 + eighth_note, 0),
-                            (quarter_note * 3, 0)]
-                note_duration = eighth_note * 0.8
-                local_density = density * 0.7
-
-            # 构建和弦音（根据voicing）
+            # 构建和弦音（根据 voicing）
             if voicing == "close":
                 chord_tones = [root, third, fifth]
                 if seventh is not None:
@@ -139,24 +162,19 @@ class AdaptiveAccompanimentTemplate(BaseTemplate):
 
                 # 如果有上一小节根音，尽量保持共同音
                 if prev_root is not None and i == 0:
-                    # 检查是否是共同音
                     common_tone = self._find_common_tone(prev_root, root, chord_tones)
                     if common_tone is not None:
                         pitch = common_tone
 
                 # 计算力度
-                if style == "dance":
-                    # Dance 风格强拍更强
-                    if i % 2 == 0:
-                        velocity = velocity_base + velocity_range // 2
-                    else:
-                        velocity = velocity_base - velocity_range // 4
+                if i % 2 == 0:
+                    velocity = local_velocity + velocity_range // 2
                 else:
-                    velocity = velocity_base + random.randint(-velocity_range // 2, velocity_range // 2)
+                    velocity = local_velocity - velocity_range // 4
 
                 velocity = max(25, min(85, velocity))
 
-                notes.append((tick, tick + note_duration, pitch, velocity, channel))
+                notes.append((tick, tick + local_note_duration, pitch, velocity, channel))
 
             # 更新 prev_root
             prev_root = root
@@ -170,7 +188,6 @@ class AdaptiveAccompanimentTemplate(BaseTemplate):
 
         common = set(prev_intervals) & set(curr_intervals)
         if common:
-            # 返回第一个共同音
             interval = list(common)[0]
             return chord_tones[curr_intervals.index(interval)]
         return None

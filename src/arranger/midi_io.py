@@ -308,7 +308,8 @@ class MidiWriter:
         ticks_per_beat: int = 480,
         tempo: int = 120,
         time_signature: Tuple[int, int] = (4, 4),
-        filename: Optional[str] = None
+        filename: Optional[str] = None,
+        total_ticks: Optional[int] = None
     ) -> bytes:
         """
         写入 MIDI 文件
@@ -320,6 +321,7 @@ class MidiWriter:
             tempo: 速度（BPM）
             time_signature: 拍号
             filename: 输出文件路径（可选）
+            total_ticks: P1-2: 可选的期望总 tick 数，用于补齐 end_of_track
 
         Returns:
             MIDI 文件二进制数据
@@ -334,22 +336,42 @@ class MidiWriter:
         for track_data in tracks:
             track = MidiTrack()
 
+            # P1-2: 计算当前轨道的实际结束时间
+            track_end_time = 0
+            current_time = 0
             for msg_type, params in track_data:
                 if msg_type == 'note_on':
                     track.append(Message('note_on', **params))
+                    if 'time' in params:
+                        current_time += params['time']
+                        track_end_time = max(track_end_time, current_time)
                 elif msg_type == 'note_off':
                     track.append(Message('note_off', **params))
+                    if 'time' in params:
+                        current_time += params['time']
+                        track_end_time = max(track_end_time, current_time)
                 elif msg_type == 'program_change':
                     track.append(Message('program_change', **params))
+                    if 'time' in params:
+                        current_time += params['time']
                 elif msg_type == 'control_change':
                     track.append(Message('control_change', **params))
+                    if 'time' in params:
+                        current_time += params['time']
                 elif msg_type == 'track_name':
                     name = params.get('name', '')
                     ascii_name = name.encode('ascii', 'replace').decode('ascii')
                     track.append(MetaMessage('track_name', name=ascii_name))
+                    if 'time' in params:
+                        current_time += params['time']
 
-            # 补齐 end_of_track
-            track.append(MetaMessage('end_of_track'))
+            # P1-2: 补齐 end_of_track 到 total_ticks
+            if total_ticks is not None and total_ticks > track_end_time:
+                # 添加 delta 到 total_ticks
+                delta = total_ticks - track_end_time
+                track.append(MetaMessage('end_of_track', time=delta))
+            else:
+                track.append(MetaMessage('end_of_track'))
 
             midi.tracks.append(track)
 
