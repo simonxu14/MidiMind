@@ -37,6 +37,7 @@ class AdaptiveAccompanimentTemplate(BaseTemplate):
     description = "自适应钢琴伴奏"
     applicable_instruments = ["piano", "harp"]
     applicable_roles = ["accompaniment", "inner_voice"]
+    per_measure_select = True  # 模板内部自行按小节迭代生成
 
     default_params = {
         "density": 0.7,

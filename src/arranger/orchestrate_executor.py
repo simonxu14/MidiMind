@@ -808,13 +808,29 @@ class OrchestrateExecutor:
         为指定声部生成音符
 
         使用模板或默认逻辑
+
+        P1 修复：对于 PianoTemplatePool 启用的声部，按小节迭代选择模板
+        - per_measure_select=True 的模板（如 adaptive_accompaniment）：使用完整 context，
+          模板内部自行按小节迭代生成
+        - per_measure_select=False 的模板（如 alberti、arpeggio 等离散模板）：
+          外部按小节拆分生成，每小节创建 sub_context
         """
         import random
+
+        # 判断是否启用 PianoTemplatePool
+        instrument = part.instrument.lower() if part.instrument else ""
+        role = part.role
+        pool_enabled = (
+            self.plan.arrangement and
+            self.plan.arrangement.piano_template_pool is not None and
+            instrument in ("piano", "harp") and
+            role in ("accompaniment", "inner_voice")
+        )
 
         # 获取模板
         template = None
         if part.template_name:
-            # P2-3: 记录显式设置的模板
+            # 显式设置的模板
             self._report_stats["template_per_part"][part.id] = part.template_name
             template = self.template_registry.get(part.template_name)
             if template is None:
@@ -823,9 +839,11 @@ class OrchestrateExecutor:
                     f"(instrument={part.instrument}, role={part.role}). "
                     f"Falling back to auto-selection."
                 )
-        else:
-            # 自动选择模板：使用 PianoTemplatePool 按模式选择
-            template = self._select_template_for_part(part, context)
+                template = None
+        elif pool_enabled:
+            # 自动选择模板：使用 PianoTemplatePool
+            # P1 修复：先调用一次 with measure_idx=0 初始化窗口缓存，同时获取模板
+            template = self._select_template_for_part(part, context, measure_idx=0)
 
         if template:
             # 构建模板参数字典，包含上下文信息
@@ -838,10 +856,9 @@ class OrchestrateExecutor:
             if "instrument" not in template_params:
                 template_params["instrument"] = part.instrument
 
-            # 根据模式调整模板参数
+            # 根据模式调整模板参数（用于 per_measure_select=False 的情况）
             current_mode = context.current_mode
             if "syncopation" not in template_params:
-                # B 段增加切分，C/D 段增加密度
                 if current_mode == "B":
                     template_params["syncopation"] = 0.3
                 elif current_mode == "C":
@@ -849,7 +866,19 @@ class OrchestrateExecutor:
                 elif current_mode == "D":
                     template_params["density"] = template_params.get("density", 0.7) * 1.4
 
-            return template.generate(context, template_params)
+            # P1 修复：per_measure_select=True 的模板使用完整 context（内部自行迭代）
+            # per_measure_select=False 的模板外部按小节拆分
+            if pool_enabled and not part.template_name and getattr(template, 'per_measure_select', False):
+                # 自适应模板：使用完整 context，模板内部处理 per-measure
+                return template.generate(context, template_params)
+            elif pool_enabled and not part.template_name:
+                # 离散模板：外部按小节拆分生成
+                return self._generate_part_per_measure(
+                    part, context, template, template_params
+                )
+            else:
+                # 显式模板或非 pool 模板：使用完整 context
+                return template.generate(context, template_params)
 
         # 默认：生成简单的和弦持续音（警告：这会导致稀疏的编曲）
         logger.warning(
@@ -910,6 +939,61 @@ class OrchestrateExecutor:
                     ))
 
         return notes
+
+    def _generate_part_per_measure(
+        self,
+        part: PartSpec,
+        context: ArrangementContext,
+        template: BaseTemplate,
+        template_params: Dict[str, Any]
+    ) -> List[NoteEvent]:
+        """
+        按小节拆分生成离散模板
+
+        P1 修复：对于 PianoTemplatePool 启用的离散模板（如 alberti、arpeggio 等），
+        外部按小节迭代选择模板并生成，每小节创建 sub_context。
+
+        对于自适应模板（per_measure_select=True），应使用 _generate_part 中的
+        完整 context 路径，不应调用此方法。
+        """
+        all_notes: List[NoteEvent] = []
+        sorted_measures = sorted(context.chord_per_measure.keys())
+
+        for measure_idx in sorted_measures:
+            # 获取该小节的 mode
+            mode = context.section_modes.get(measure_idx, 'A')
+
+            # P1: 创建 sub_context，只包含当前小节的和弦信息
+            # 使用 model_copy 避免修改原始 context
+            sub_context = context.model_copy(deep=True)
+            chord_info = context.chord_per_measure[measure_idx]
+            sub_context.chord_per_measure = {measure_idx: chord_info}
+            sub_context.current_mode = mode
+
+            # 获取 prev_chord_root（上一小节的根音）用于声部连接
+            # 找到当前小节在排序列表中的位置
+            try:
+                curr_pos = sorted_measures.index(measure_idx)
+                if curr_pos > 0:
+                    prev_measure_idx = sorted_measures[curr_pos - 1]
+                    sub_context.prev_chord_root = context.chord_per_measure[prev_measure_idx].root
+                else:
+                    sub_context.prev_chord_root = None
+            except (ValueError, KeyError):
+                sub_context.prev_chord_root = None
+
+            # P1: 根据当前小节的 mode 选择模板（窗口缓存会正常工作）
+            measure_template = self._select_template_for_part(
+                part, sub_context, measure_idx=measure_idx
+            )
+
+            # 生成该小节的音符
+            measure_notes = measure_template.generate(sub_context, template_params)
+
+            # 将音符添加到结果（音符已经是绝对 tick）
+            all_notes.extend(measure_notes)
+
+        return all_notes
 
     def _apply_guards(
         self,

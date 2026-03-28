@@ -32,6 +32,11 @@ class BaseTemplate(ABC):
     # 适用的角色列表
     applicable_roles: List[str] = []
 
+    # P1 修复：是否在模板内部自行按小节迭代生成
+    # True = 模板自己遍历 chord_per_measure，需要传完整 context
+    # False = 模板不自行按小节迭代，需要外部按小节拆分生成
+    per_measure_select: bool = False
+
     @abstractmethod
     def generate(
         self,
