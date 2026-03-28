@@ -7,9 +7,8 @@
 from __future__ import annotations
 
 from typing import List, Dict, Tuple, Optional
-from dataclasses import dataclass
 
-from .plan_schema import ChordInfo, SectionMode, NoteEvent
+from .plan_schema import ChordInfo, NoteEvent
 
 
 # ============ 和弦分析 ============
@@ -92,34 +91,7 @@ def analyze_chord_quality(root: int, third: int, fifth: int) -> str:
     return 'unknown'
 
 
-def build_chord_info(root: int, third: int, fifth: int) -> ChordInfo:
-    """
-    构建 ChordInfo 对象
-
-    Args:
-        root, third, fifth: 和弦音
-
-    Returns:
-        ChordInfo 对象
-    """
-    quality = analyze_chord_quality(root, third, fifth)
-    return ChordInfo(
-        root=root,
-        third=third,
-        fifth=fifth,
-        quality=quality
-    )
-
-
 # ============ 段落模式检测 ============
-
-@dataclass
-class SectionFeatures:
-    """段落特征"""
-    note_count: int  # 旋律音符数量
-    avg_velocity: float  # 平均力度
-    avg_pitch: float  # 平均音高
-
 
 def estimate_section_modes(
     melody_notes: List[NoteEvent],
@@ -202,23 +174,3 @@ def estimate_section_modes(
             section_modes[m] = mode
 
     return section_modes
-
-
-def get_velocity_cap_for_mode(
-    mode: str,
-    instrument_id: str,
-    caps_by_mode: Dict[str, Dict[str, int]]
-) -> int:
-    """
-    获取指定模式下某乐器的力度上限
-
-    Args:
-        mode: 段落模式 (A/B/C/D)
-        instrument_id: 声部 ID
-        caps_by_mode: 按模式的力度上限配置
-
-    Returns:
-        力度上限值
-    """
-    mode_caps = caps_by_mode.get(mode, {})
-    return mode_caps.get(instrument_id, 60)  # 默认 60

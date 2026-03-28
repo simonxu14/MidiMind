@@ -448,20 +448,3 @@ class MidiWriter:
             prev_tick = tick
 
         return messages
-
-    @staticmethod
-    def ensure_end_of_track(track: List[Message], total_ticks: int) -> List[Message]:
-        """确保 track 以 end_of_track 结束，并补齐到 total_ticks"""
-        if not track:
-            track = [MetaMessage('end_of_track', time=total_ticks)]
-            return track
-
-        # 找到最后一个消息的时间
-        last_time = track[-1].time if hasattr(track[-1], 'time') else 0
-
-        # 如果需要，添加 end_of_track
-        if track[-1].type != 'end_of_track':
-            # 补齐到 total_ticks
-            track.append(MetaMessage('end_of_track', time=total_ticks - last_time))
-
-        return track

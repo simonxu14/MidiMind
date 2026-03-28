@@ -410,17 +410,22 @@ class AutoFixer:
         notes: List[NoteEvent],
         melody_notes: List[NoteEvent],
         min_semitones: int = 5,
+        chord_per_measure: Optional[Dict[int, Tuple[int, int, int]]] = None,
         instrument_for_channel: Optional[Dict[int, str]] = None
     ) -> List[NoteEvent]:
         """
         保持伴奏与旋律的音区分离
 
-        确保伴奏与旋律的音程距离 >= min_semitones
+        P2-1 完整策略：
+        1) 先 octave shift（上下八度）
+        2) 不行就 swap chord tone（替换为 root/third/fifth）
+        3) 再不行 skip event
 
         Args:
             notes: 伴奏音符列表
             melody_notes: 旋律音符列表
             min_semitones: 最小音程距离
+            chord_per_measure: 可选的每小节和弦信息 {measure_idx: (root, third, fifth)}
 
         Returns:
             调整后的音符列表
@@ -431,53 +436,69 @@ class AutoFixer:
             for t in range(start, end):
                 melody_at_tick[t] = pitch
 
+        # 默认 ticks_per_beat
+        ticks_per_beat = 480
+
+        def check_collision(p: int, t_start: int, t_end: int) -> bool:
+            """检查给定音高在时间范围内是否与旋律冲突"""
+            for t in range(t_start, min(t_end, t_start + 100)):
+                if t in melody_at_tick:
+                    melody_pitch = melody_at_tick[t]
+                    distance = abs(p - melody_pitch) % 12
+                    if distance < min_semitones and distance != 0:
+                        return True
+            return False
+
         result = []
         for start, end, pitch, velocity, channel in notes:
             # 检查该音符时间段是否与旋律重叠
-            has_collision = False
-            for t in range(start, min(end, start + 100)):  # 只检查前100 ticks
-                if t in melody_at_tick:
-                    melody_pitch = melody_at_tick[t]
-                    distance = abs(pitch - melody_pitch) % 12
-                    # 检查是否太近（小于 min_semitones 或形成小于四度的间隔）
-                    if distance < min_semitones and distance != 0:
-                        has_collision = True
-                        break
+            if not check_collision(pitch, start, end):
+                # 没有冲突，保留原音符
+                result.append((start, end, pitch, velocity, channel))
+                continue
 
-            if has_collision:
-                # 尝试把伴奏音往上或往下移动八度
-                new_pitch_up = pitch + 12
-                new_pitch_down = pitch - 12
+            # 策略 1: Octave shift
+            new_pitch_up = pitch + 12
+            new_pitch_down = pitch - 12
 
-                # 检查移动后是否仍然与旋律冲突
-                collision_up = any(
-                    abs((new_pitch_up - melody_at_tick.get(t, 0)) % 12) < min_semitones
-                    for t in range(start, min(end, start + 100))
-                ) if any(t in melody_at_tick for t in range(start, min(end, start + 100))) else False
+            if not check_collision(new_pitch_up, start, end):
+                result.append((start, end, new_pitch_up, velocity, channel))
+                self.fixes_applied.append(
+                    f"Register separation: pitch {pitch} -> {new_pitch_up} (octave up, ch {channel})"
+                )
+                continue
+            elif not check_collision(new_pitch_down, start, end):
+                result.append((start, end, new_pitch_down, velocity, channel))
+                self.fixes_applied.append(
+                    f"Register separation: pitch {pitch} -> {new_pitch_down} (octave down, ch {channel})"
+                )
+                continue
 
-                collision_down = any(
-                    abs((new_pitch_down - melody_at_tick.get(t, 0)) % 12) < min_semitones
-                    for t in range(start, min(end, start + 100))
-                ) if any(t in melody_at_tick for t in range(start, min(end, start + 100))) else False
+            # 策略 2: Swap chord tone
+            if chord_per_measure:
+                measure_idx = start // (ticks_per_beat * 4)  # 假设 4/4
+                chord = chord_per_measure.get(measure_idx)
+                if chord:
+                    root, third, fifth = chord
+                    # 尝试用 chord tones 替换
+                    for alt_pitch in [root, third, fifth, root + 12, third + 12, fifth + 12]:
+                        if alt_pitch != pitch and not check_collision(alt_pitch, start, end):
+                            result.append((start, end, alt_pitch, velocity, channel))
+                            self.fixes_applied.append(
+                                f"Register separation: pitch {pitch} -> {alt_pitch} (chord tone, ch {channel})"
+                            )
+                            break
+                    else:
+                        # 所有 chord tones 都不行，跳过
+                        self.fixes_applied.append(
+                            f"Register separation: skipped pitch {pitch} at tick {start} (ch {channel})"
+                        )
+                    continue
 
-                if not collision_up and not collision_down:
-                    # 两个方向都可以，选一个
-                    pitch = new_pitch_up
-                    self.fixes_applied.append(
-                        f"Register separation: pitch {pitch - 12} -> {pitch} (ch {channel})"
-                    )
-                elif not collision_up:
-                    pitch = new_pitch_up
-                    self.fixes_applied.append(
-                        f"Register separation: pitch {pitch - 12} -> {pitch} (ch {channel})"
-                    )
-                elif not collision_down:
-                    pitch = new_pitch_down
-                    self.fixes_applied.append(
-                        f"Register separation: pitch {pitch + 12} -> {pitch} (ch {channel})"
-                    )
-
-            result.append((start, end, pitch, velocity, channel))
+            # 策略 3: Skip event（没有 chord_per_measure 或 chord tones 也不行）
+            self.fixes_applied.append(
+                f"Register separation: skipped pitch {pitch} at tick {start} (ch {channel})"
+            )
 
         return result
 

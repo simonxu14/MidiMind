@@ -10,7 +10,6 @@ OrchestrateExecutor - 乐队编曲执行器
 
 from __future__ import annotations
 
-import copy
 import logging
 from typing import List, Dict, Optional, Tuple
 
@@ -31,7 +30,8 @@ from .plan_schema import (
 )
 from .templates import get_registry, BaseTemplate
 from .auto_fixer import AutoFixer
-from .harmony_analyzer import estimate_section_modes
+from .harmony_analyzer import estimate_section_modes, choose_triadish, analyze_chord_quality
+from .timebase import measure_len as calc_measure_len
 
 
 # ============ 乐器音域表 ============
@@ -76,6 +76,15 @@ class OrchestrateExecutor:
         self.guards = plan.constraints.guards or GuardsConfig()
         self.template_registry = get_registry()
         self.melody_onsets: List[int] = []  # 存储旋律 onset 供 _generate_part 使用
+
+        # P2-3: Arrangement report 统计
+        self._report_stats = {
+            "template_per_part": {},  # part_id -> template_name
+            "onset_avoidance_hits": 0,  # onset 降速次数
+            "velocity_cap_hits": 0,  # velocity cap 命中次数
+            "percussion_hits": {"timpani": 0, "triangle": 0},  # percussion 命中次数
+            "section_modes": {},  # measure_idx -> mode
+        }
 
     def execute(
         self,
@@ -190,6 +199,21 @@ class OrchestrateExecutor:
             fixer = AutoFixer()
             fixed_notes = fixer.fix_all(all_accompaniment_notes, channel_ranges)
 
+            # P2-1: 应用 register_separation（如果启用）
+            if self.plan.arrangement and getattr(self.plan.arrangement, 'register_separation', False):
+                min_semitones = getattr(self.plan.arrangement, 'min_semitones', 5)
+                # 转换 chord_per_measure: ChordInfo -> (root, third, fifth) tuples
+                chord_tuples: Dict[int, Tuple[int, int, int]] = {
+                    m: (c.root, c.third, c.fifth)
+                    for m, c in arrangement_context.chord_per_measure.items()
+                }
+                fixed_notes = fixer.apply_register_separation(
+                    fixed_notes,
+                    locked_melody_notes,
+                    min_semitones=min_semitones,
+                    chord_per_measure=chord_tuples
+                )
+
             # 按 channel 分组回各声部
             channel_to_notes: Dict[int, List[NoteEvent]] = {}
             for note in fixed_notes:
@@ -237,7 +261,7 @@ class OrchestrateExecutor:
         melody_channel = melody_part.midi.channel if melody_part else 0
 
         melody_track_data = MidiWriter.create_track_from_note_events(
-            track_name="Melody",  # Use fixed name for melody track
+            track_name=melody_part.name if melody_part else "Melody",  # P1-2: Use part name from Plan
             note_events=locked_melody_notes,
             program=melody_program,
             channel=melody_channel
@@ -289,11 +313,17 @@ class OrchestrateExecutor:
         # 8. 统计信息
         total_notes = sum(len(t) for t in output_tracks if t)
 
+        # P2-3: 生成 arrangement_report
+        arrangement_report = self._generate_arrangement_report(
+            arrangement_context, accompaniment_tracks, output_tracks
+        )
+
         stats = {
             "track_count": len(output_tracks),
             "parts_count": len([p for p in self.ensemble.parts if p.role != "melody"]),
             "instrument_list": instrument_list,
             "total_notes": total_notes,
+            "arrangement_report": arrangement_report,
         }
 
         return output_tracks, stats
@@ -302,9 +332,18 @@ class OrchestrateExecutor:
         """
         锁定主旋律
 
-        将旋律轨的音符逐事件复制到输出
+        P1-2 修复: channel 和 track_name 按 Plan 中的 melody part 配置
+        只锁定 pitch/time/velocity，不改音符事件
         """
         locked: List[NoteEvent] = []
+
+        # P1-2: 从 ensemble.parts 找 role=="melody" 的 part 获取 channel
+        melody_channel = 0  # 默认值
+        if self.ensemble and self.ensemble.parts:
+            for part in self.ensemble.parts:
+                if part.role == "melody":
+                    melody_channel = part.midi.channel
+                    break
 
         for note in melody_track.notes:
             locked.append((
@@ -312,7 +351,7 @@ class OrchestrateExecutor:
                 note.end_tick,
                 note.pitch,
                 note.velocity,
-                0  # melody 固定在 channel 0
+                melody_channel
             ))
 
         return locked
@@ -357,8 +396,9 @@ class OrchestrateExecutor:
 
         for note in all_notes:
             ts_den = harmony_ctx.time_signature_den if hasattr(harmony_ctx, 'time_signature_den') else 4
-            beats_per_measure = ticks_per_beat * ts_den
-            measure = note.start_tick // beats_per_measure
+            ts_num = harmony_ctx.time_signature_num if hasattr(harmony_ctx, 'time_signature_num') else 4
+            measure_len_val = calc_measure_len(ticks_per_beat, (ts_num, ts_den))
+            measure = note.start_tick // measure_len_val
             if measure not in measure_notes:
                 measure_notes[measure] = []
             measure_notes[measure].append(note)
@@ -372,45 +412,24 @@ class OrchestrateExecutor:
 
             pitches = sorted(set(n.pitch for n in notes))
 
+            # P1-3: 统一使用 harmony_analyzer.choose_triadish
             if len(pitches) < 3:
                 # 音符太少，使用默认
                 root = pitches[0] if pitches else 60
                 third = root + 4
                 fifth = root + 7
-            else:
-                # 简单和弦分析：取最低音为根音，然后找三音和五音
-                root = pitches[0]
-                # 找最接近的三音（根音+3或+4）
-                third_candidates = [p for p in pitches if 3 <= p - root <= 5]
-                third = third_candidates[0] if third_candidates else root + 4
-                # 找最接近的五音（根音+6-8）
-                fifth_candidates = [p for p in pitches if 6 <= p - root <= 8]
-                fifth = fifth_candidates[0] if fifth_candidates else root + 7
-
-            # 判断和弦性质
-            third_interval = third - root
-            fifth_interval = fifth - root
-
-            # 规范化到 0-11 范围（处理八度移动后的音程）
-            third_norm = third_interval % 12
-            fifth_norm = fifth_interval % 12
-
-            # 判断和弦性质
-            if fifth_norm == 7:
-                if third_norm == 4:
-                    quality = "major"
-                elif third_norm == 3:
-                    quality = "minor"
-                else:
-                    quality = "unknown"
-            elif fifth_norm == 6 and third_norm == 3:
-                # 减三和弦：根音+小三度+减五度
-                quality = "diminished"
-            elif fifth_norm == 8 and third_norm == 4:
-                # 增三和弦：根音+大三度+增五度
-                quality = "augmented"
-            else:
                 quality = "unknown"
+            else:
+                triad = choose_triadish(pitches)
+                if triad:
+                    root, third, fifth = triad
+                    quality = analyze_chord_quality(root, third, fifth)
+                else:
+                    # 回退：使用默认
+                    root = pitches[0]
+                    third = root + 4
+                    fifth = root + 7
+                    quality = "unknown"
 
             harmony[measure] = ChordInfo(
                 root=root,
@@ -421,7 +440,7 @@ class OrchestrateExecutor:
 
         return harmony
 
-    def _default_harmony(self, melody_track: TrackInfo, tempo: int = 120, time_signature_den: int = 4) -> Dict[int, ChordInfo]:
+    def _default_harmony(self, melody_track: TrackInfo, time_signature_den: int = 4) -> Dict[int, ChordInfo]:
         """
         默认和声分析（基于旋律轨）
 
@@ -633,7 +652,7 @@ class OrchestrateExecutor:
         register_targets = self._build_register_targets()
 
         # 估计段落模式
-        measure_len = int(midi.ticks_per_beat * time_signature[1])
+        measure_len = calc_measure_len(int(midi.ticks_per_beat), time_signature)
         total_measures = total_ticks // measure_len if total_ticks > 0 else 1
 
         # 将 melody_notes 转换为 NoteEvent 格式
@@ -667,6 +686,7 @@ class OrchestrateExecutor:
             section_modes=section_modes,
             current_mode=current_mode,
             melody_onsets=melody_onsets,
+            melody_notes=melody_note_events,
             melody_range=melody_range,
             tempo=int(tempo),
             style=style,
@@ -714,6 +734,9 @@ class OrchestrateExecutor:
                     # 使用第一个模板
                     chosen_name = mode_templates[0]
 
+                # P2-3: 记录模板选择
+                self._report_stats["template_per_part"][part.id] = chosen_name
+
                 template = self.template_registry.get(chosen_name)
                 if template:
                     return template
@@ -750,6 +773,8 @@ class OrchestrateExecutor:
         # 获取模板
         template = None
         if part.template_name:
+            # P2-3: 记录显式设置的模板
+            self._report_stats["template_per_part"][part.id] = part.template_name
             template = self.template_registry.get(part.template_name)
             if template is None:
                 logger.warning(
@@ -879,14 +904,24 @@ class OrchestrateExecutor:
         guarded_notes: List[NoteEvent] = []
 
         for start, end, pitch, velocity, channel in notes:
-            # Velocity cap
+            original_velocity = velocity
+
+            # P2-3: Velocity cap 统计
+            if velocity > max_velocity:
+                self._report_stats["velocity_cap_hits"] += 1
             velocity = min(velocity, max_velocity)
 
-            # 旋律 onset 避让（减少力度）
+            # P1-1: 旋律 onset 避让（post-window 模式 + 使用 reduce_ratio）
             if avoid_onsets:
+                reduce_ratio = 0.6  # 默认值
+                if self.plan.arrangement and hasattr(self.plan.arrangement, 'reduce_ratio'):
+                    reduce_ratio = self.plan.arrangement.reduce_ratio
                 for onset in melody_onsets:
-                    if abs(start - onset) < onset_window:
-                        velocity = int(velocity * 0.5)
+                    # post-window: onset <= start < onset + window
+                    if onset <= start < onset + onset_window:
+                        velocity = int(velocity * reduce_ratio)
+                        # P2-3: onset avoidance 统计
+                        self._report_stats["onset_avoidance_hits"] += 1
                         break
 
             # 音域裁剪
@@ -1033,18 +1068,25 @@ class OrchestrateExecutor:
         notes: List[NoteEvent],
         part: PartSpec,
         timing_jitter: int = 0,
-        velocity_jitter: int = 0
+        velocity_jitter: int = 0,
+        distribution: str = "trunc_normal"
     ) -> List[NoteEvent]:
         """
         应用人性化处理
 
         注意：主旋律永远不应用 humanize
 
+        P0-3 修复：
+        - start/end 同偏移（保持时值不变）
+        - 同一 start_tick 的音符共享 jitter（chord coherent）
+        - 支持 distribution 参数（uniform|trunc_normal）
+
         Args:
             notes: 音符事件列表
             part: 声部配置
             timing_jitter: timing 随机偏移量（ticks）
             velocity_jitter: 力度随机波动
+            distribution: jitter 分布类型 ("uniform" | "trunc_normal")
 
         Returns:
             处理后的音符列表
@@ -1057,19 +1099,39 @@ class OrchestrateExecutor:
         if timing_jitter <= 0 and velocity_jitter <= 0:
             return notes
 
+        # P0-3: 按 start_tick 分组，同组的音符共享 jitter
+        by_start: Dict[int, List[Tuple[int, int, int, int, int]]] = {}
+        for note in notes:
+            start, end, pitch, velocity, channel = note
+            by_start.setdefault(start, []).append(note)
+
+        def sample_jitter() -> int:
+            """根据 distribution 采样 jitter"""
+            if distribution == "trunc_normal":
+                # 截断正态分布：使用 Box-Muller 变换后截断
+                while True:
+                    u1 = random.random()
+                    u2 = random.random()
+                    z = random.gauss(0, timing_jitter / 2)
+                    if -timing_jitter <= z <= timing_jitter:
+                        return int(z)
+            else:
+                # uniform 分布
+                return random.randint(-timing_jitter, timing_jitter)
+
         result = []
-        for start, end, pitch, velocity, channel in notes:
-            # Timing jitter - 在 start time 上加随机偏移
-            if timing_jitter > 0:
-                jitter = random.randint(-timing_jitter, timing_jitter)
-                start = max(0, start + jitter)
+        for start, group in by_start.items():
+            j = sample_jitter() if timing_jitter > 0 else 0
+            for s, e, pitch, velocity, channel in group:
+                new_start = max(0, s + j)
+                new_end = max(0, e + j)
 
-            # Velocity jitter - 力度随机波动
-            if velocity_jitter > 0:
-                jitter = random.randint(-velocity_jitter, velocity_jitter)
-                velocity = max(1, min(127, velocity + jitter))
+                new_velocity = velocity
+                if velocity_jitter > 0:
+                    v_jitter = random.randint(-velocity_jitter, velocity_jitter)
+                    new_velocity = max(1, min(127, velocity + v_jitter))
 
-            result.append((start, end, pitch, velocity, channel))
+                result.append((new_start, new_end, pitch, new_velocity, channel))
 
         return result
 
@@ -1124,7 +1186,8 @@ class OrchestrateExecutor:
         """
         生成定音鼓音符
 
-        Timpani: phrase_end_beat4, vel=35
+        P0-4 修复: Timpani 只在乐句边界触发 (phrase_end_beat4)
+        触发规则: measure_idx % phrase_block_measures == phrase_block_measures - 1
         """
         import random
 
@@ -1134,8 +1197,13 @@ class OrchestrateExecutor:
         measure_len = context.measure_len
         vel_base = policy.timp_vel_base if hasattr(policy, 'timp_vel_base') else 35
         dur = policy.timp_dur_ticks if hasattr(policy, 'timp_dur_ticks') else 240
+        phrase_block = getattr(policy, 'phrase_block_measures', 8)
 
         for measure_idx, chord_info in context.chord_per_measure.items():
+            # P0-4: 只在 phrase block 的最后一个小节触发
+            if measure_idx % phrase_block != phrase_block - 1:
+                continue
+
             root = chord_info.root
 
             measure_start = measure_idx * measure_len
@@ -1166,18 +1234,25 @@ class OrchestrateExecutor:
         """
         生成三角铁音符
 
-        Triangle: phrase_start_beat1, vel=25
+        P0-4 修复: Triangle 只在乐句边界触发 (phrase_start_beat1)
+        触发规则: measure_idx % phrase_block_measures == 0
+        Triangle 使用 GM percussion channel 9, pitch 81
         """
         import random
 
         notes: List[NoteEvent] = []
-        channel = 12  # Percussion channel
+        channel = 9  # GM Percussion channel
         ticks_per_beat = context.ticks_per_beat
         measure_len = context.measure_len
         vel_base = policy.tri_vel_base if hasattr(policy, 'tri_vel_base') else 25
         dur = policy.tri_dur_ticks if hasattr(policy, 'tri_dur_ticks') else 60
+        phrase_block = getattr(policy, 'phrase_block_measures', 8)
 
         for measure_idx, chord_info in context.chord_per_measure.items():
+            # P0-4: 只在 phrase block 的第一个小节触发
+            if measure_idx % phrase_block != 0:
+                continue
+
             measure_start = measure_idx * measure_len
 
             # phrase_start_beat1: 第1拍
@@ -1187,8 +1262,8 @@ class OrchestrateExecutor:
             velocity = vel_base + random.randint(-5, 5)
             velocity = max(18, min(35, velocity))
 
-            # 三角铁音高
-            pitch = 76  # 高音
+            # 三角铁音高 - 使用 GM triangle 标准音高 81
+            pitch = 81
 
             notes.append((tick, tick + dur, pitch, velocity, channel))
 
@@ -1283,3 +1358,97 @@ class OrchestrateExecutor:
             return "hn"
 
         return "pf"  # 默认钢琴
+
+    def _generate_arrangement_report(
+        self,
+        arrangement_context: ArrangementContext,
+        accompaniment_tracks: Dict[str, List[NoteEvent]],
+        output_tracks: List[List[Tuple[str, Dict]]]
+    ) -> Dict[str, any]:
+        """
+        P2-3: 生成 arrangement_report.json
+
+        包含：
+        - modes per 8-bar block
+        - 每小节钢琴模板选择
+        - guards 裁剪次数
+        - percussion 命中次数
+
+        Args:
+            arrangement_context: 编排上下文
+            accompaniment_tracks: 伴奏轨道
+            output_tracks: 输出轨道
+
+        Returns:
+            arrangement_report 字典
+        """
+        report = {
+            "section_modes": {},
+            "piano_template_per_measure": {},
+            "guards_stats": {
+                "onset_avoidance_hits": self._report_stats["onset_avoidance_hits"],
+                "velocity_cap_hits": self._report_stats["velocity_cap_hits"],
+            },
+            "percussion_hits": self._report_stats["percussion_hits"],
+            "template_usage": self._report_stats["template_per_part"].copy(),
+        }
+
+        # 1. Section modes per 8-bar block
+        section_modes = arrangement_context.section_modes
+        section_block = 8
+        blocks = {}
+        for measure_idx, mode in section_modes.items():
+            block_idx = measure_idx // section_block
+            if block_idx not in blocks:
+                blocks[block_idx] = {"mode": mode, "measures": []}
+            blocks[block_idx]["measures"].append(measure_idx)
+
+        report["section_modes"] = {
+            f"block_{k}": {"mode": v["mode"], "measures": v["measures"]}
+            for k, v in blocks.items()
+        }
+
+        # 2. Piano template per measure
+        # 这需要从钢琴声部的模板参数中推断
+        piano_part_id = None
+        for part in self.ensemble.parts:
+            if part.instrument and "piano" in part.instrument.lower():
+                piano_part_id = part.id
+                break
+
+        if piano_part_id and piano_part_id in accompaniment_tracks:
+            piano_notes = accompaniment_tracks[piano_part_id]
+            measure_len = arrangement_context.measure_len
+            for measure_idx, chord_info in arrangement_context.chord_per_measure.items():
+                measure_start = measure_idx * measure_len
+                # 统计该小节的钢琴音符数量来判断模板类型
+                notes_in_measure = [
+                    n for n in piano_notes
+                    if measure_start <= n[0] < measure_start + measure_len
+                ]
+                density = len(notes_in_measure) / 4  # 简化的密度估算
+                template_name = "unknown"
+                if piano_part_id in self._report_stats["template_per_part"]:
+                    template_name = self._report_stats["template_per_part"][piano_part_id]
+                report["piano_template_per_measure"][f"measure_{measure_idx}"] = {
+                    "template": template_name,
+                    "note_count": len(notes_in_measure),
+                    "chord_root": chord_info.root,
+                    "chord_quality": chord_info.quality,
+                }
+
+        # 3. Percussion hits from output tracks
+        for track_data in output_tracks:
+            track_name = None
+            note_count = 0
+            for msg_type, params in track_data:
+                if msg_type == "track_name":
+                    track_name = params.get("name", "")
+                elif msg_type in ("note_on", "note_off"):
+                    note_count += 1
+
+            if track_name in ("auto_timpani", "auto_triangle"):
+                perc_type = "timpani" if "timpani" in track_name else "triangle"
+                report["percussion_hits"][perc_type] = note_count
+
+        return report

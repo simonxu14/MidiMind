@@ -20,7 +20,7 @@ from __future__ import annotations
 from typing import List, Dict, Tuple, Optional, Any
 from dataclasses import dataclass
 
-from .midi_io import MidiReader, MidiWriter, MidiFile, TrackInfo, ParsedNote
+from .midi_io import MidiReader, MidiFile, TrackInfo, ParsedNote
 from .plan_schema import (
     UnifiedPlan,
     CheckResult,
@@ -319,7 +319,8 @@ class Validator:
             return CheckResult(passed=True, message="Total ticks check skipped")
 
         # 允许小误差（小于 1 beat = 480 ticks）
-        TICK_TOLERANCE = 480
+        # P0-2 fix: keep_total_ticks 要求严格一致，容差必须为 0
+        TICK_TOLERANCE = 0
         diff = abs(input_total - output_total)
         if diff > TICK_TOLERANCE:
             return CheckResult(

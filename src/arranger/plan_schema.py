@@ -372,6 +372,10 @@ class ArrangementContext(BaseModel):
         default_factory=list,
         description="旋律音符的开始时间列表"
     )
+    melody_notes: List[NoteEvent] = Field(
+        default_factory=list,
+        description="旋律音符完整事件列表 (start, end, pitch, velocity, channel)"
+    )
     melody_range: Tuple[int, int] = Field(
         default=(0, 127),
         description="旋律音域 (min_pitch, max_pitch)"
