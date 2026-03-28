@@ -19,6 +19,9 @@ import logging
 import os
 import uuid
 import json
+import time
+import hashlib
+import subprocess
 import threading
 
 logger = logging.getLogger(__name__)
@@ -341,6 +344,7 @@ async def arrange(
     plan_json: str = Form(...),
     melody_track: Optional[str] = Form(None),
     conversation_id: Optional[str] = Form(None),
+    version_id: Optional[str] = Form(None),
 ):
     """
     执行编曲
@@ -348,9 +352,27 @@ async def arrange(
     - 接收 MIDI 文件和 Plan JSON
     - 执行编曲
     - 返回输出文件和验证结果
+    - 如果提供 conversation_id 和 version_id，结果会保存到会话
     """
+    import time
+    import hashlib
+    import subprocess
+
     if not file.filename.endswith(('.mid', '.midi')):
         raise HTTPException(status_code=400, detail="Only MIDI files supported")
+
+    # 记录开始时间
+    execution_start_time = time.time()
+
+    # 获取当前 commit id
+    try:
+        commit_id = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=REPO_ROOT,
+            text=True
+        ).strip()
+    except Exception:
+        commit_id = None
 
     # 读取 MIDI
     midi_data = await file.read()
@@ -471,6 +493,27 @@ async def arrange(
         # 验证
         validator = Validator(plan)
         validation_result = validator.validate(midi_data, output_tracks)
+
+        # 计算执行耗时和输出文件 hash
+        execution_duration_ms = int((time.time() - execution_start_time) * 1000)
+        output_midi_hash = hashlib.sha256(output_data).hexdigest()
+
+        # 如果提供了 conversation_id 和 version_id，保存执行结果到会话
+        if conversation_id and version_id:
+            try:
+                conversation_manager.update_arrangement_version_result(
+                    conversation_id=conversation_id,
+                    version_id=version_id,
+                    stats=stats,
+                    validator_result=validation_result.to_dict(),
+                    arrangement_report=stats.get("arrangement_report") if stats else None,
+                    output_midi_hash=output_midi_hash,
+                    output_file_path=str(output_path),
+                    commit_id=commit_id,
+                    execution_duration_ms=execution_duration_ms
+                )
+            except Exception as e:
+                logger.warning(f"Failed to save execution result to conversation: {e}")
 
         # 返回结果
         import base64

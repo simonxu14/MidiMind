@@ -66,6 +66,16 @@ class ArrangementVersion:
     """编曲版本记录"""
     version_id: str
     plan: Dict[str, Any]
+    # 执行结果（新增）
+    stats: Optional[Dict[str, Any]] = None  # 执行统计
+    validator_result: Optional[Dict[str, Any]] = None  # 验证结果
+    arrangement_report: Optional[Dict[str, Any]] = None  # arrangement report
+    # 输出信息（新增）
+    output_midi_hash: Optional[str] = None  # 输出 MIDI 的 SHA256
+    output_file_path: Optional[str] = None  # 输出文件路径
+    # 执行元数据（新增）
+    commit_id: Optional[str] = None  # 执行的代码 commit
+    execution_duration_ms: Optional[int] = None  # 执行耗时
     user_feedback: Optional[str] = None
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     status: str = "generated"  # generated, reviewed, revised, approved
@@ -213,6 +223,44 @@ class ConversationManager:
         for version in conversation["arrangement_versions"]:
             if version["version_id"] == version_id:
                 version["status"] = status
+                break
+
+        conversation["updated_at"] = datetime.now().isoformat()
+        self._save_to_disk(conversation_id, conversation)
+
+    def update_arrangement_version_result(
+        self,
+        conversation_id: str,
+        version_id: str,
+        stats: Optional[Dict[str, Any]] = None,
+        validator_result: Optional[Dict[str, Any]] = None,
+        arrangement_report: Optional[Dict[str, Any]] = None,
+        output_midi_hash: Optional[str] = None,
+        output_file_path: Optional[str] = None,
+        commit_id: Optional[str] = None,
+        execution_duration_ms: Optional[int] = None
+    ) -> None:
+        """更新编曲版本的执行结果"""
+        conversation = self.get_conversation(conversation_id)
+        if not conversation:
+            raise ValueError(f"Conversation {conversation_id} not found")
+
+        for version in conversation["arrangement_versions"]:
+            if version["version_id"] == version_id:
+                if stats is not None:
+                    version["stats"] = stats
+                if validator_result is not None:
+                    version["validator_result"] = validator_result
+                if arrangement_report is not None:
+                    version["arrangement_report"] = arrangement_report
+                if output_midi_hash is not None:
+                    version["output_midi_hash"] = output_midi_hash
+                if output_file_path is not None:
+                    version["output_file_path"] = output_file_path
+                if commit_id is not None:
+                    version["commit_id"] = commit_id
+                if execution_duration_ms is not None:
+                    version["execution_duration_ms"] = execution_duration_ms
                 break
 
         conversation["updated_at"] = datetime.now().isoformat()
