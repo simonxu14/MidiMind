@@ -77,7 +77,6 @@ class FluteCountermelodyTemplate(BaseTemplate):
             可以插入motif的 tick 位置集合
         """
         ticks_per_beat = context.ticks_per_beat
-        time_signature = context.time_signature
         measure_len = context.measure_len
         min_rest_ticks = int(min_rest_beats * ticks_per_beat)
 
@@ -96,7 +95,8 @@ class FluteCountermelodyTemplate(BaseTemplate):
 
         # P3: 使用 meter_grid 获取实际的 beat 网格（而不是硬编码 range(4)）
         # 对于 6/8，使用 pulse 网格（每小节 3 个位置）；对于 4/4，使用 quarter 网格
-        n, d = time_signature
+        n = context.time_signature_num
+        d = context.time_signature_den
         if n % 3 == 0 and d == 8:
             grid_kind = "pulse"  # 6/8, 9/8, 12/8 使用 pulse 网格
         else:
@@ -106,7 +106,7 @@ class FluteCountermelodyTemplate(BaseTemplate):
             measure_start = measure_idx * measure_len
             grid_positions = meter_grid(
                 ticks_per_beat,
-                time_signature,
+                (n, d),
                 kind=grid_kind,
                 measure_start=measure_start,
                 measure_count=1,
@@ -163,7 +163,8 @@ class FluteCountermelodyTemplate(BaseTemplate):
             measure_start = measure_idx * measure_len
 
             # P3: 使用 meter_grid 获取实际的网格位置（而不是硬编码 range(4)）
-            n, d = context.time_signature
+            n = context.time_signature_num
+            d = context.time_signature_den
             if n % 3 == 0 and d == 8:
                 grid_kind = "pulse"
             else:
@@ -171,7 +172,7 @@ class FluteCountermelodyTemplate(BaseTemplate):
 
             grid_positions = meter_grid(
                 ticks_per_beat,
-                context.time_signature,
+                (n, d),
                 kind=grid_kind,
                 measure_start=measure_start,
                 measure_count=1,
