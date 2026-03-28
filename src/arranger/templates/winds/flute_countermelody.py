@@ -6,6 +6,10 @@ Winds: Flute Countermelody 模板
 P2-2 修复：
 - 只在旋律空隙 (rest >= 1 beat) 出现
 - 使用 triad-relative motifs (3-5-1-5 等形状)
+
+P3 修复：
+- 使用 meter_grid API 支持任意拍号（不再硬编码 range(4)）
+- 对于复合拍号（6/8 等）使用 pulse 网格
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ from typing import List, Dict, Any, Set
 
 from ..base import BaseTemplate
 from ...plan_schema import NoteEvent, ArrangementContext
+from ...timebase import meter_grid, beats_per_measure
 
 
 class FluteCountermelodyTemplate(BaseTemplate):
@@ -62,6 +67,8 @@ class FluteCountermelodyTemplate(BaseTemplate):
 
         P2-2: 返回可以插入音符的 tick 位置集合
 
+        P3: 使用 meter_grid API 支持任意拍号
+
         Args:
             context: 编排上下文
             min_rest_beats: 最少 rest 时长（拍）
@@ -70,6 +77,8 @@ class FluteCountermelodyTemplate(BaseTemplate):
             可以插入motif的 tick 位置集合
         """
         ticks_per_beat = context.ticks_per_beat
+        time_signature = context.time_signature
+        measure_len = context.measure_len
         min_rest_ticks = int(min_rest_beats * ticks_per_beat)
 
         # 构建旋律占用时间段
@@ -83,14 +92,28 @@ class FluteCountermelodyTemplate(BaseTemplate):
 
         # 获取总时间范围
         max_tick = max((end for _, end, _, _, _ in context.melody_notes), default=0)
-        measure_len = context.measure_len
         total_measures = max(1, max_tick // measure_len + 1)
+
+        # P3: 使用 meter_grid 获取实际的 beat 网格（而不是硬编码 range(4)）
+        # 对于 6/8，使用 pulse 网格（每小节 3 个位置）；对于 4/4，使用 quarter 网格
+        n, d = time_signature
+        if n % 3 == 0 and d == 8:
+            grid_kind = "pulse"  # 6/8, 9/8, 12/8 使用 pulse 网格
+        else:
+            grid_kind = "quarter"  # 其他拍号使用 quarter 网格
 
         for measure_idx in range(total_measures):
             measure_start = measure_idx * measure_len
-            for beat in range(4):
-                tick = measure_start + beat * ticks_per_beat
+            grid_positions = meter_grid(
+                ticks_per_beat,
+                time_signature,
+                kind=grid_kind,
+                measure_start=measure_start,
+                measure_count=1,
+                clip_to_measure=True
+            )
 
+            for tick in grid_positions:
                 # 检查从 tick 开始的 min_rest_beats 是否都是空的
                 is_gap = True
                 for rest_tick in range(tick, tick + min_rest_ticks):
@@ -139,10 +162,24 @@ class FluteCountermelodyTemplate(BaseTemplate):
 
             measure_start = measure_idx * measure_len
 
-            # P2-2: 遍历每个潜在插入位置
-            for beat in range(4):
-                tick = measure_start + beat * ticks_per_beat
+            # P3: 使用 meter_grid 获取实际的网格位置（而不是硬编码 range(4)）
+            n, d = context.time_signature
+            if n % 3 == 0 and d == 8:
+                grid_kind = "pulse"
+            else:
+                grid_kind = "quarter"
 
+            grid_positions = meter_grid(
+                ticks_per_beat,
+                context.time_signature,
+                kind=grid_kind,
+                measure_start=measure_start,
+                measure_count=1,
+                clip_to_measure=True
+            )
+
+            # P2-2: 遍历每个潜在插入位置
+            for tick in grid_positions:
                 # P2-2: 只在空隙位置插入
                 if tick not in valid_positions:
                     continue

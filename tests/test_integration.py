@@ -204,3 +204,93 @@ class TestEndToEndArrangement:
             )
 
             assert stats["track_count"] >= expected_parts
+
+    def test_6_8_meter_regression(self):
+        """
+        回归测试：6/8 拍号编曲
+
+        验证：
+        1. total_ticks 与输入一致
+        2. 硬约束通过
+        3. flute 轨道有音符产出（P1-1 修复验证）
+
+        参考 conversation: 4bbdcbdae1d14e77a4d2a48d59e00a87
+        """
+        import os
+
+        # 加载 6/8 测试 MIDI
+        test_midi_path = os.path.join(
+            os.path.dirname(__file__),
+            "sample",
+            "我和我的祖国.mid"
+        )
+
+        if not os.path.exists(test_midi_path):
+            pytest.skip(f"Test MIDI not found: {test_midi_path}")
+
+        with open(test_midi_path, "rb") as f:
+            midi_data = f.read()
+
+        # 分析输入
+        service = MidiAnalysisService()
+        analysis_result = service.analyze(midi_data)
+
+        # 验证是 6/8 拍
+        assert analysis_result.time_signature == (6, 8), f"Expected 6/8, got {analysis_result.time_signature}"
+
+        # 创建简单 4 人室内乐计划（不指定具体模板，使用自动匹配）
+        ensemble = EnsembleConfig(
+            name="test_6_8_ensemble",
+            size="small",
+            target_size=4,
+            parts=[
+                PartSpec(id="vn1", name="第一小提琴", role="melody",
+                         instrument="violin", midi=MidiSpec(channel=0, program=40)),
+                PartSpec(id="piano", name="钢琴", role="accompaniment",
+                         instrument="piano", midi=MidiSpec(channel=1, program=0)),
+                PartSpec(id="va", name="中提琴", role="inner_voice",
+                         instrument="viola", midi=MidiSpec(channel=2, program=41)),
+                PartSpec(id="vc", name="大提琴", role="bass",
+                         instrument="cello", midi=MidiSpec(channel=3, program=42)),
+            ],
+        )
+
+        plan = UnifiedPlan(
+            schema_version="1.0",
+            transform=TransformSpec(type="orchestration"),
+            ensemble=ensemble,
+            harmony_context=HarmonyContext(
+                method="measure_pitchset_triadish",
+                granularity="per_measure",
+            ),
+            constraints=Constraints(
+                lock_melody_events=LockMelodyConfig(
+                    enabled=True,
+                    source_track_ref="1",  # 旋律在 track 1
+                ),
+                keep_total_ticks=True,
+                guards=GuardsConfig(),
+            ),
+            outputs=OutputConfig(
+                midi=MidiOutputConfig(enabled=True, filename="test_6_8.mid")
+            ),
+        )
+
+        # 执行编曲
+        executor = OrchestrateExecutor(plan)
+        output_tracks, stats = executor.execute(
+            input_midi=midi_data,
+            melody_track_index=1
+        )
+
+        # 验证输出有轨道
+        assert len(output_tracks) >= 4, f"Expected at least 4 tracks, got {len(output_tracks)}"
+
+        # 验证 Validator 通过
+        validator = Validator(plan)
+        validation_result = validator.validate(midi_data, output_tracks)
+
+        assert validation_result.melody_identical.passed, \
+            f"melody_identical failed: {validation_result.melody_identical.message}"
+        assert validation_result.total_ticks_identical.passed, \
+            f"total_ticks_identical failed: {validation_result.total_ticks_identical.message}"

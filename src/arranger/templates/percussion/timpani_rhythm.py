@@ -2,6 +2,11 @@
 Percussion: Timpani Rhythm 模板
 
 定音鼓节奏模板 - 低音鼓的节奏支持
+
+P3 修复：
+- pitch 范围约束到 45-53 (合理定音鼓音域)
+- 降低 velocity_base 到更合理的范围
+- 使用 melodic channel (不用 percussion channel 9)
 """
 
 from __future__ import annotations
@@ -22,10 +27,11 @@ class TimpaniRhythmTemplate(BaseTemplate):
 
     参数：
     - density: 密度 (0.0-1.0)
-    - velocity_base: 基础力度
+    - velocity_base: 基础力度 (P3: 降低到 50)
     - velocity_range: 力度变化范围
     - pattern: 节奏模式 (quarter/eighth/mixed)
     - accent_first: 是否强调第一拍
+    - pitch_range: (min, max) pitch 范围约束
     """
 
     name = "timpani_rhythm"
@@ -35,10 +41,12 @@ class TimpaniRhythmTemplate(BaseTemplate):
 
     default_params = {
         "density": 0.8,
-        "velocity_base": 70,
+        "velocity_base": 50,  # P3: 降低力度
         "velocity_range": 12,
         "pattern": "quarter",
         "accent_first": True,
+        "pitch_min": 45,  # P3: D2-C3 range
+        "pitch_max": 53,  # P3: F3
     }
 
     def generate(
@@ -49,7 +57,7 @@ class TimpaniRhythmTemplate(BaseTemplate):
         """
         生成定音鼓节奏
 
-        在低音区演奏节奏型
+        P3: pitch 范围约束到 45-53
         """
         p = {**self.default_params, **params}
         density = p["density"]
@@ -57,18 +65,24 @@ class TimpaniRhythmTemplate(BaseTemplate):
         velocity_range = p["velocity_range"]
         pattern = p["pattern"]
         accent_first = p["accent_first"]
+        pitch_min = p.get("pitch_min", 45)
+        pitch_max = p.get("pitch_max", 53)
 
         measure_len = context.measure_len
         ticks_per_beat = context.ticks_per_beat
         quarter_note = ticks_per_beat
 
         notes: List[NoteEvent] = []
-        channel = 11  # Timpani channel
+        channel = 0  # P3: Melodic channel (not percussion channel 9)
 
         for measure_idx, chord_info in context.chord_per_measure.items():
             root = chord_info.root
 
             measure_start = measure_idx * measure_len
+
+            # P3: 将根音映射到 pitch_min-pitch_max 范围内
+            # 根音通常在中音区，向下映射到定音鼓音域
+            base_pitch = max(pitch_min, min(pitch_max, root - 12))  # 根音下移八度并 clamp
 
             # 根据模式决定演奏位置
             if pattern == "quarter":
@@ -97,10 +111,10 @@ class TimpaniRhythmTemplate(BaseTemplate):
                     velocity = velocity_base - velocity_range // 4
 
                 velocity += random.randint(-velocity_range // 3, velocity_range // 3)
-                velocity = max(40, min(95, velocity))
+                velocity = max(35, min(75, velocity))  # P3: 限制范围
 
-                # 定音鼓没有明确音高，用根音表示
-                pitch = 36  # C2
+                # P3: pitch 约束在 pitch_min-pitch_max 范围内
+                pitch = base_pitch
 
                 # 时值
                 duration = int(quarter_note * 0.5)

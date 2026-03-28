@@ -70,6 +70,9 @@ app = FastAPI(
 STORAGE_DIR = Path("/tmp/midimind")
 STORAGE_DIR.mkdir(exist_ok=True)
 
+# 代码仓库根目录（用于 git commit id 获取）
+REPO_ROOT = Path(__file__).parent.parent.parent
+
 # 会话存储
 conversations: Dict[str, Dict[str, Any]] = {}
 conversation_lock = threading.Lock()

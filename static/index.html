@@ -1312,17 +1312,21 @@
                     fileToUse = new File([sampleBlob], selectedSample.filename, { type: 'audio/midi' });
                 }
 
-                const planFormData = new FormData();
-                planFormData.append('file', fileToUse);
-                planFormData.append('user_intent', document.getElementById('userIntent').value);
-
-                const planRes = await fetch('/plan', { method: 'POST', body: planFormData });
-                const planData = await planRes.json();
-
+                // Use the plan from data (passed from sendMessage) instead of calling /plan again
+                // This ensures we use the same version_id that was created in the conversation
                 const arrangeFormData = new FormData();
                 arrangeFormData.append('file', fileToUse);
-                arrangeFormData.append('plan_json', JSON.stringify(planData.plan));
-                arrangeFormData.append('melody_track', planData.analyze.melody_candidates[0]?.track_index || 0);
+                arrangeFormData.append('plan_json', JSON.stringify(data.plan));
+                // melody_track is optional, default to 0 if not available
+                if (data.analyze && data.analyze.melody_candidates) {
+                    arrangeFormData.append('melody_track', data.analyze.melody_candidates[0]?.track_index || 0);
+                }
+                if (data.conversation_id) {
+                    arrangeFormData.append('conversation_id', data.conversation_id);
+                }
+                if (data.version_id) {
+                    arrangeFormData.append('version_id', data.version_id);
+                }
 
                 const arrangeRes = await fetch('/arrange', { method: 'POST', body: arrangeFormData });
                 arrangementResult = await arrangeRes.json();
