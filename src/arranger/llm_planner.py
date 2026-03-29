@@ -502,6 +502,17 @@ template_name 是**必须**的，不能省略！
                 "method": "measure_pitchset_triadish",
                 "granularity": "per_measure"
             },
+            # P1-Fix: 显式输出 arrangement 字段，避免 None 导致系统使用隐式默认值
+            "arrangement": plan_dict.get("arrangement") or {
+                "reduce_ratio": 0.6,
+                "onset_avoidance_action": "scale_velocity",
+                "register_separation": True,
+                "min_semitones": 5,
+                "velocity_caps_by_mode": {},
+                "cc_by_mode": {},
+                "humanize": {"enabled": False},
+                "percussion": {"enabled": True, "phrase_block": 8, "density": 0.5},
+            },
             "constraints": {
                 "lock_melody_events": {
                     "enabled": True,
@@ -509,7 +520,15 @@ template_name 是**必须**的，不能省略！
                     "source_track_ref": plan_dict.get("constraints", {}).get("lock_melody_events", {}).get("source_track_ref") or auto_source_track,
                     "source_track_selection_mode": "auto"
                 },
-                "keep_total_ticks": True
+                "keep_total_ticks": True,
+                # P1-Fix: 显式输出 guards 字段，避免 None 导致系统使用隐式默认值
+                "guards": plan_dict.get("constraints", {}).get("guards") or {
+                    "velocity_caps": {},
+                    "avoid_melody_onsets": True,
+                    "onset_window_ticks": 120,
+                    "onset_avoidance_action": "scale_velocity",
+                    "register_separation": True,
+                },
             },
             "outputs": {
                 "midi": {

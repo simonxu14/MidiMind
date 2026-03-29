@@ -81,7 +81,10 @@ class OrchestrateExecutor:
         self._report_stats = {
             "template_per_part": {},  # part_id -> template_name
             "template_per_measure": {},  # (part_id, measure_idx) -> template_name
-            "onset_avoidance_hits": 0,  # onset 降速次数
+            "onset_avoidance_hits": 0,  # onset 避让总次数
+            "onset_scale_velocity_hits": 0,  # onset 降速次数
+            "onset_delay_hits": 0,  # onset 延迟次数
+            "onset_drop_hits": 0,  # onset 跳过次数
             "velocity_cap_hits": 0,  # velocity cap 命中次数
             "percussion_hits": {"timpani": 0, "triangle": 0},  # percussion 命中次数
             "section_modes": {},  # measure_idx -> mode
@@ -201,7 +204,9 @@ class OrchestrateExecutor:
 
         if all_accompaniment_notes:
             fixer = AutoFixer()
-            fixed_notes = fixer.fix_all(all_accompaniment_notes, channel_ranges)
+            # P4-Fix: 跳过 percussion channels（channel 9 = GM percussion）
+            skip_channels = [9]
+            fixed_notes = fixer.fix_all(all_accompaniment_notes, channel_ranges, skip_channels=skip_channels)
 
             # P2-1: 应用 register_separation（如果启用）
             if self.plan.arrangement and getattr(self.plan.arrangement, 'register_separation', False):
@@ -949,6 +954,11 @@ class OrchestrateExecutor:
                 )
             else:
                 # 显式模板或非 pool 模板：使用完整 context
+                # P1-2 Fix: 补齐 template_per_measure 统计
+                template_name = getattr(template, 'name', 'unknown')
+                for measure_idx in context.chord_per_measure.keys():
+                    key = f"{part.id}#m{measure_idx}"
+                    self._report_stats["template_per_measure"][key] = template_name
                 return template.generate(context, template_params)
 
         # 默认：生成简单的和弦持续音（警告：这会导致稀疏的编曲）
@@ -1103,18 +1113,45 @@ class OrchestrateExecutor:
                 self._report_stats["velocity_cap_hits"] += 1
             velocity = min(velocity, max_velocity)
 
-            # P1-1: 旋律 onset 避让（post-window 模式 + 使用 reduce_ratio）
+            # P1-1: 旋律 onset 避让（post-window 模式 + 支持 scale/delay/drop）
             if avoid_onsets:
-                reduce_ratio = 0.6  # 默认值
-                if self.plan.arrangement and hasattr(self.plan.arrangement, 'reduce_ratio'):
-                    reduce_ratio = self.plan.arrangement.reduce_ratio
+                # 检查是否在 onset 窗口内
+                in_onset_window = False
                 for onset in melody_onsets:
-                    # post-window: onset <= start < onset + window
                     if onset <= start < onset + onset_window:
-                        velocity = int(velocity * reduce_ratio)
-                        # P2-3: onset avoidance 统计
-                        self._report_stats["onset_avoidance_hits"] += 1
+                        in_onset_window = True
                         break
+
+                if in_onset_window:
+                    # 获取避让动作策略：优先从 guards 获取，再 fallback 到 arrangement
+                    action = getattr(self.guards, 'onset_avoidance_action', 'scale_velocity')
+                    if action is None and self.plan.arrangement:
+                        action = getattr(self.plan.arrangement, 'onset_avoidance_action', 'scale_velocity')
+                    if action is None:
+                        action = 'scale_velocity'  # 安全默认值
+
+                    if action == 'drop':
+                        # 跳过该音符（不添加到 guarded_notes）
+                        self._report_stats["onset_avoidance_hits"] += 1
+                        self._report_stats["onset_drop_hits"] += 1
+                        continue
+
+                    elif action == 'delay':
+                        # 延迟 15-30 ticks（1/32-1/16 拍）
+                        import random
+                        delay_ticks = random.randint(15, 30)
+                        start = start + delay_ticks
+                        end = end + delay_ticks
+                        self._report_stats["onset_avoidance_hits"] += 1
+                        self._report_stats["onset_delay_hits"] += 1
+
+                    else:  # scale_velocity (default)
+                        reduce_ratio = 0.6  # 默认值
+                        if self.plan.arrangement and hasattr(self.plan.arrangement, 'reduce_ratio'):
+                            reduce_ratio = self.plan.arrangement.reduce_ratio
+                        velocity = int(velocity * reduce_ratio)
+                        self._report_stats["onset_avoidance_hits"] += 1
+                        self._report_stats["onset_scale_velocity_hits"] += 1
 
             # 音域裁剪
             if pitch < range_min:
@@ -1580,6 +1617,9 @@ class OrchestrateExecutor:
             "template_per_measure": self._report_stats["template_per_measure"].copy(),
             "guards_stats": {
                 "onset_avoidance_hits": self._report_stats["onset_avoidance_hits"],
+                "onset_scale_velocity_hits": self._report_stats["onset_scale_velocity_hits"],
+                "onset_delay_hits": self._report_stats["onset_delay_hits"],
+                "onset_drop_hits": self._report_stats["onset_drop_hits"],
                 "velocity_cap_hits": self._report_stats["velocity_cap_hits"],
             },
             "percussion_hits": self._report_stats["percussion_hits"],
@@ -1639,7 +1679,7 @@ class OrchestrateExecutor:
                 elif msg_type in ("note_on", "note_off"):
                     note_count += 1
 
-            if track_name in ("auto_timpani", "auto_triangle"):
+            if track_name in ("auto_timpani", "auto_triangle", "timpani", "triangle"):
                 perc_type = "timpani" if "timpani" in track_name else "triangle"
                 report["percussion_hits"][perc_type] = note_count
 

@@ -66,7 +66,8 @@ class AutoFixer:
     def fix_all(
         self,
         notes: List[NoteEvent],
-        instrument_ranges: Optional[Dict[str, Tuple[int, int]]] = None
+        instrument_ranges: Optional[Dict[str, Tuple[int, int]]] = None,
+        skip_channels: Optional[List[int]] = None
     ) -> List[NoteEvent]:
         """
         修复所有检测到的问题
@@ -74,6 +75,7 @@ class AutoFixer:
         Args:
             notes: 音符事件列表
             instrument_ranges: 乐器音域字典
+            skip_channels: 跳过声部修复的 channel 列表（如 percussion channel 9）
 
         Returns:
             修复后的音符列表
@@ -89,8 +91,8 @@ class AutoFixer:
         # 2. 修复过大跳跃
         notes = self.fix_octave_jumps(notes)
 
-        # 3. 修复声部交叉
-        notes = self.fix_voice_crossing(notes)
+        # 3. 修复声部交叉（跳过 percussion channels）
+        notes = self.fix_voice_crossing(notes, skip_channels=skip_channels)
 
         # 4. 修复平行五八度
         notes = self.fix_parallel_fifths(notes)
@@ -117,8 +119,14 @@ class AutoFixer:
 
         for start, end, pitch, velocity, channel in notes:
             # 尝试通过 channel 查找对应乐器的音域
-            # 如果找不到，使用钢琴范围
-            range_min, range_max = instrument_ranges.get(str(channel), (21, 108))
+            # P4-Fix: channel_ranges 使用 int key，但 instrument_ranges 用 str key
+            # 优先尝试 int，再尝试 str，最后 fallback 到钢琴范围
+            if channel in instrument_ranges:
+                range_min, range_max = instrument_ranges[channel]
+            elif str(channel) in instrument_ranges:
+                range_min, range_max = instrument_ranges[str(channel)]
+            else:
+                range_min, range_max = (21, 108)
 
             fixed_pitch = pitch
 
@@ -190,17 +198,27 @@ class AutoFixer:
 
     def fix_voice_crossing(
         self,
-        notes: List[NoteEvent]
+        notes: List[NoteEvent],
+        skip_channels: Optional[List[int]] = None
     ) -> List[NoteEvent]:
         """
         修复声部交叉
 
         当低声部高于高声部时，交换它们的音高
+
+        P4-Fix: 排除打击乐 channel（9=GM percussion, 以及其他打击乐）不参与声部交叉修复
         """
-        # 按 channel 分组
+        # P4-Fix: 默认跳过 GM percussion channel 9
+        if skip_channels is None:
+            skip_channels = [9]
+
+        # 按 channel 分组，但跳过 percussion channels
         voices: Dict[int, List[VoiceInfo]] = {}
 
         for start, end, pitch, velocity, channel in notes:
+            # P4-Fix: 跳过 percussion channels
+            if channel in skip_channels:
+                continue
             if channel not in voices:
                 voices[channel] = []
             voices[channel].append(VoiceInfo(pitch=pitch, tick=start, channel=channel))
@@ -210,6 +228,11 @@ class AutoFixer:
 
         result = []
         for start, end, pitch, velocity, channel in notes:
+            # P4-Fix: percussion channel 直接不过滤（保持原样）
+            if channel in skip_channels:
+                result.append((start, end, pitch, velocity, channel))
+                continue
+
             # 检测是否与低声部交叉
             crossing_fixed = False
             for other_ch in channels:

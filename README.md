@@ -4,6 +4,107 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+---
+
+## 最近更新 (2026-03-29)
+
+### P1 修复（AnyGen 评估反馈）
+
+| 问题 | 修复 | 文件 |
+|------|------|------|
+| AutoFixer channel key 类型 bug | 优先 int key 查找，再 str key，最后 fallback | `auto_fixer.py` |
+| 打击乐参与声部交叉修复 | `fix_voice_crossing` 跳过 channel 9 (GM percussion) | `auto_fixer.py` |
+| 旋律 onset 避让过弱 | 升级为三种策略：scale_velocity / delay / drop | `orchestrate_executor.py`, `plan_schema.py` |
+| flute min_rest_beats=1 太严格 | 降低到 0.5 以适应连续旋律 | `flute_countermelody.py` |
+| Plan guards/arrangement=None | Planner 显式输出默认值 | `llm_planner.py` |
+| template_per_measure 为空 | 补齐所有模板路径的统计 | `orchestrate_executor.py` |
+| percussion_hits=0 | 同时统计 auto 和显式 timpani/triangle | `orchestrate_executor.py` |
+
+### 新增功能
+
+| 功能 | 说明 | 文件 |
+|------|------|------|
+| Meter Grid API | 支持非 4/4 拍号（6/8, 9/8 等） | `timebase.py` |
+| OrchestrateExecutor 执行结果保存 | stats/validator_result/arrangement_report 写入 conversation | `orchestrate_executor.py`, `conversation.py` |
+| GuardsConfig.onset_avoidance_action | 三种避让策略配置 | `plan_schema.py` |
+| Arrangement.onset_avoidance_action | arrangement 级别的避让策略 | `plan_schema.py` |
+
+### 详细变更说明
+
+#### 1. AutoFixer 音域映射修复
+
+```python
+# 修复前：只用 str key 查找
+range_min, range_max = instrument_ranges.get(str(channel), (21, 108))
+
+# 修复后：优先 int，再 str，最后 fallback
+if channel in instrument_ranges:
+    range_min, range_max = instrument_ranges[channel]
+elif str(channel) in instrument_ranges:
+    range_min, range_max = instrument_ranges[str(channel)]
+else:
+    range_min, range_max = (21, 108)
+```
+
+#### 2. Onset Avoidance 三种策略
+
+```python
+# plan_schema.py - GuardsConfig
+onset_avoidance_action: Literal["scale_velocity", "delay", "drop"] = "scale_velocity"
+
+# orchestrate_executor.py - 策略执行
+if action == 'drop':
+    continue  # 跳过该音符
+elif action == 'delay':
+    start += random.randint(15, 30)  # 延迟 15-30 ticks
+    end += delay_ticks
+else:  # scale_velocity
+    velocity = int(velocity * reduce_ratio)
+```
+
+#### 3. Meter Grid API（支持非 4/4 拍号）
+
+```python
+# timebase.py
+def meter_grid(ticks_per_beat, time_signature, kind, measure_start, measure_count, clip_to_measure):
+    # kind = "quarter" | "eighth" | "pulse"
+    # 6/8 等复合拍号自动使用 pulse 网格
+
+# flute_countermelody.py 使用示例
+if n % 3 == 0 and d == 8:
+    grid_kind = "pulse"  # 6/8, 9/8, 12/8
+else:
+    grid_kind = "quarter"  # 4/4, 3/4, 2/4
+```
+
+#### 4. 打击乐语义化
+
+```python
+# timpani_rhythm.py
+pitch_min, pitch_max = 45, 53  # 定音鼓标准音域
+
+# accent_cymbal.py
+channel = 9  # GM percussion channel
+triangle_note = 81  # GM triangle
+velocity_base = 35  # 降低力度
+```
+
+#### 5. OrchestrateExecutor Stats 新增字段
+
+```python
+self._report_stats = {
+    "onset_avoidance_hits": 0,
+    "onset_scale_velocity_hits": 0,  # 新增
+    "onset_delay_hits": 0,          # 新增
+    "onset_drop_hits": 0,           # 新增
+    "velocity_cap_hits": 0,
+    "percussion_hits": {"timpani": 0, "triangle": 0},
+    # ...
+}
+```
+
+---
+
 ## 功能特性
 
 ### 核心能力
@@ -20,6 +121,8 @@
 | 难度调整 | 简化版 / 复杂化版 |
 | 风格转换 | 流行 → 古典、爵士风格改编 |
 | 乐器替换 | 钢琴伴奏 → 吉他/弦乐 |
+
+---
 
 ## 快速开始
 
@@ -48,6 +151,8 @@ python3 -m arranger.api --host 0.0.0.0 --port 8000
 ```
 http://your_server_ip:8000
 ```
+
+---
 
 ## API 使用
 
@@ -81,6 +186,8 @@ curl -X POST http://localhost:8000/arrange \
   -F "plan_json=@plan.json"
 ```
 
+---
+
 ## 系统架构
 
 ```
@@ -95,15 +202,25 @@ curl -X POST http://localhost:8000/arrange \
 │  - 理解用户意图                                            │
 │  - 生成编曲方案 (UnifiedPlan JSON)                         │
 │  - 乐器配置、声部角色、模板参数                              │
+│  - 显式输出 guards 和 arrangement（避免 None）              │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Orchestrate Executor                       │
+│                    OrchestrateExecutor                       │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐       │
 │  │ 模板系统    │  │ 和声分析    │  │ 旋律锁定    │       │
 │  │ 18个模板    │  │ ChordInfo   │  │ NoteEvent   │       │
+│  │ + MeterGrid │  │ per_measure │  │ 原样复制    │       │
 │  └─────────────┘  └─────────────┘  └─────────────┘       │
+│  ┌─────────────────────────────────────────────────┐       │
+│  │ Guard 系统（onset_avoidance / velocity_cap /    │       │
+│  │          register_separation）                  │       │
+│  └─────────────────────────────────────────────────┘       │
+│  ┌─────────────────────────────────────────────────┐       │
+│  │ AutoFixer（fix_octave_jumps / fix_voice_crossing /      │
+│  │          fix_parallel_fifths / fix_out_of_range）│       │
+│  └─────────────────────────────────────────────────┘       │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -117,16 +234,20 @@ curl -X POST http://localhost:8000/arrange \
                     输出: arranged.mid
 ```
 
+---
+
 ## 核心模块
 
 ### plan_schema.py - 数据模型
 
 | 类 | 说明 |
 |---|---|
-| `UnifiedPlan` | 完整编曲方案，包含 ensemble、constraints、harmony_context |
+| `UnifiedPlan` | 完整编曲方案，包含 ensemble、constraints、harmony_context、arrangement |
 | `EnsembleConfig` | 乐队配置（名称、规模、声部列表） |
 | `PartSpec` | 单个声部规格（ID、角色、乐器、MIDI通道、模板） |
 | `Constraints` | 约束配置（旋律锁定、总时长、护栏） |
+| `GuardsConfig` | 护栏配置（velocity_caps、onset_window_ticks、onset_avoidance_action、register_separation） |
+| `ArrangementConfig` | 编曲配置（reduce_ratio、onset_avoidance_action、velocity_caps_by_mode、percussion） |
 | `HarmonyContext` | 和声分析配置（方法、粒度） |
 
 ### orchestrate_executor.py - 主执行器
@@ -141,15 +262,28 @@ execute(input_midi, melody_track_index)
     ├─3─ 分析和声 ─────────────────→ chord_per_measure{}
     │
     ├─4─ 构建 ArrangementContext ──→ context
+    │       (包含 time_signature_num, time_signature_den, meter_grid)
     │
     ├─5─ 生成各声部
     │       │
     │       ├─ melody: 原样复制
     │       ├─ accompaniment: DenseAccompaniment
     │       ├─ bass: CelloPedalRoot
-    │       └─ inner_voice: ViolaInner16ths
+    │       ├─ inner_voice: ViolaInner16ths
+    │       └─ counter_melody: FluteCountermelody (min_rest_beats=0.5)
     │
-    └─6─ 输出 tracks_data[]
+    ├─6─ Guard 处理
+    │       ├─ velocity_cap: min(velocity, max_velocity)
+    │       ├─ onset_avoidance: scale/delay/drop
+    │       └─ register_separation: octave_shift / chord_tone / skip
+    │
+    ├─7─ AutoFixer 修复
+    │       ├─ fix_out_of_range: 按 instrument_ranges (int→str 查找)
+    │       ├─ fix_octave_jumps: threshold=19 semitones
+    │       ├─ fix_voice_crossing: 跳过 percussion channel 9
+    │       └─ fix_parallel_fifths: 替换为经过音
+    │
+    └─8─ 输出 tracks_data[]
 ```
 
 ### validator.py - 验证器
@@ -161,8 +295,32 @@ execute(input_midi, melody_track_index)
 - `midi_valid` - MIDI 格式有效
 
 **软约束（警告 + AutoFixer）**:
-- `harmony_valid` - 无平行五八度
+- `harmony_valid` - 无平行五八度、无声部交叉
 - `instrument_range_valid` - 音符在乐器音域内
+
+### auto_fixer.py - 自动修复
+
+| 方法 | 说明 |
+|------|------|
+| `fix_out_of_range` | 音高移到乐器音域内（int/str key 双查找） |
+| `fix_octave_jumps` | 超过 19 semitones 的跳跃改为级进 |
+| `fix_voice_crossing` | 修复声部交叉（跳过 channel 9 percussion） |
+| `fix_parallel_fifths` | 修复平行五八度（替换为经过音） |
+| `apply_velocity_caps_by_mode` | 按模式力度上限调整 |
+| `avoid_melody_onsets` | 旋律 onset 窗口内降低伴奏力度 |
+| `apply_register_separation` | 伴奏与旋律音区分离（octave_shift → chord_tone → skip） |
+
+### timebase.py - 拍号支持
+
+| 函数 | 说明 |
+|------|------|
+| `beats_per_measure(time_signature)` | 返回每小节拍数（如 6/8 → 3.0） |
+| `meter_grid(ticks_per_beat, time_signature, kind, ...)` | 返回拍网格位置 |
+
+**Grid Kind 映射**：
+- `quarter`: 4/4, 3/4, 2/4 → 每拍一个位置
+- `pulse`: 6/8, 9/8, 12/8 → 每小节 3/6/12 个位置
+- `eighth`: 任意 → 每八分音符一个位置
 
 ### templates/ - 模板系统
 
@@ -175,12 +333,15 @@ execute(input_midi, melody_track_index)
 | **Strings** | `cello_pedal_root` | 持续根音 |
 | | `viola_inner_16ths` | 16分音符内声部 |
 | | `violin_cantabile` | 抒情旋律 |
-| **Winds** | `flute_countermelody` | 长笛副旋律 |
+| **Winds** | `flute_countermelody` | 长笛副旋律（min_rest_beats=0.5） |
 | | `clarinet_sustain` | 单簧管持续 |
 | | `oboe_color_tone` | 双簧管色彩音 |
 | **Brass** | `root_pad` | 圆号根音垫底 |
 | | `trumpet_fanfare` | 小号号角性 |
-| **Percussion** | `timpani_rhythm` | 定音鼓节奏 |
+| **Percussion** | `timpani_rhythm` | 定音鼓（pitch 45-53, GM channel） |
+| | `accent_cymbal` | 三角铁（note 81, GM channel 9） |
+
+---
 
 ## 项目结构
 
@@ -189,27 +350,28 @@ midimind/
 ├── src/arranger/
 │   ├── api.py              # FastAPI 服务入口
 │   ├── cli.py              # 命令行工具
-│   ├── plan_schema.py      # Pydantic 数据模型
-│   ├── orchestrate_executor.py  # 主执行器
+│   ├── plan_schema.py      # Pydantic 数据模型（UnifiedPlan, Guards, Arrangement）
+│   ├── orchestrate_executor.py  # 主执行器（Guard + AutoFixer 集成）
 │   ├── simplify_executor.py    # 难度降低
 │   ├── complexify_executor.py # 难度提升
 │   ├── creative_executor.py    # 创意重构
 │   ├── validator.py            # 验证器
-│   ├── auto_fixer.py           # 自动修复
+│   ├── auto_fixer.py           # 自动修复（音域/跳跃/声部交叉/五八度）
 │   ├── harmony_validator.py    # 和声验证
 │   ├── harmony_analyzer.py      # 和声分析
 │   ├── midi_io.py             # MIDI 读写
 │   ├── analyze.py              # MIDI 分析
-│   ├── llm_planner.py          # LLM 规划器
-│   ├── conversation.py         # 多轮会话管理
+│   ├── llm_planner.py          # LLM 规划器（显式 guards/arrangement）
+│   ├── conversation.py         # 多轮会话管理（+执行结果保存）
+│   ├── timebase.py             # 拍号支持（meter_grid）
 │   ├── tracer.py               # 执行追踪
 │   └── templates/               # 模板系统
 │       ├── registry.py
 │       ├── piano/
 │       ├── strings/
-│       ├── winds/
+│       ├── winds/  (flute_countermelody: min_rest_beats=0.5)
 │       ├── brass/
-│       └── percussion/
+│       └── percussion/ (GM channel 9, timpani 45-53, triangle 81)
 ├── static/
 │   └── index.html      # Web UI
 ├── tests/
@@ -217,6 +379,8 @@ midimind/
 ├── pyproject.toml
 └── README.md
 ```
+
+---
 
 ## 部署
 
@@ -241,7 +405,7 @@ WorkingDirectory=/opt/midimind
 ExecStart=/opt/midimind/venv/bin/python3 -m arranger.api --host 0.0.0.0 --port 8000
 Environment="ANTHROPIC_API_KEY=your_key"
 Environment="ANTHROPIC_BASE_URL=https://api.minimaxi.com/anthropic"
-Environment="PYTHONPATH=/opt/midimind/src"
+Environment="PYTHHPATH=/opt/midimind/src"
 Restart=always
 RestartSec=5
 
@@ -269,6 +433,8 @@ server {
 }
 ```
 
+---
+
 ## 与 Coze 集成
 
 ### Coze 插件配置
@@ -293,6 +459,8 @@ server {
 用户可以说："帮我把这首曲子编成弦乐四重奏"
 ```
 
+---
+
 ## 常见问题
 
 **Q: 编曲后的音色听起来不对？**
@@ -303,6 +471,11 @@ A: 在 intent 中指定 `density: 0.9`（高密度）或 `density: 0.6`（低密
 
 **Q: 主旋律丢失了？**
 A: 检查 `source_track_ref` 是否指向正确的旋律轨道
+
+**Q: 打击乐音高不对？**
+A: 确保使用 GM percussion channel 9，timpani pitch 限制在 45-53，triangle 使用 note 81。
+
+---
 
 ## 编曲架构设计（参考 AnyGen 方案）
 
@@ -371,15 +544,23 @@ def choose_triadish(pitches):
 - Cello: `bass_walk_8ths` - 8分低音行进 `[root-12, fifth-12, third-12, fifth-12]`
 
 **木管模板：**
-- `imitative_motif_on_rests`: 旋律空隙（≥1拍）处插入4个8分的短模仿动机
-- Motif 形状: `[third+24, fifth+24, root+36, fifth+24]`（相对 triad 动态）
+- `flute_countermelody`: 旋律空隙（≥0.5拍）处插入 triad-relative motifs
+- Motif 形状: `[3, 5, 8, 5]`, `[4, 7, 12, 7]`, `[0, 4, 7, 4]` 等
 
 ### 护栏系统（Guards）
 
-**1. avoid_melody_onsets**
-- 策略：降力度（不是跳过或后移）
-- 窗口：`[onset_tick, onset_tick + 120)`
-- 降力度比值：`reduce_ratio: 0.6`
+**1. onset_avoidance_action**（新增三种策略）
+```python
+# scale_velocity (default): 降力度
+velocity = int(velocity * reduce_ratio)  # reduce_ratio=0.6
+
+# delay: 延迟 15-30 ticks
+start += random.randint(15, 30)
+end += delay_ticks
+
+# drop: 跳过该音符
+continue
+```
 
 **2. register_separation**
 - 以旋律为锚点：同一时刻伴奏与旋律距离 ≥ 5 半音
@@ -415,12 +596,15 @@ def choose_triadish(pitches):
 ### 打击乐策略
 
 **定音鼓 (Timpani):**
+- MIDI: GM percussion channel 9
+- 音高: 45-53（固定为 root - 12）
 - 触发：每8小节块末尾（第7小节第4拍附近）
 - 力度：~35，时值：TPB/2
 
 **三角铁 (Triangle):**
+- MIDI: GM percussion channel 9, note 81
 - 触发：下一块开始（下一块第1拍）
-- 力度：~25，时值：TPB/8
+- 力度：~25-35，时值：TPB/8
 
 ### Humanize（可选）
 
@@ -429,56 +613,63 @@ def choose_triadish(pitches):
 - `velocity_jitter`: ±3
 - 同一和弦内所有音符用同一个 jitter
 
-### Plan Schema 参考
+---
+
+## Plan Schema（当前版本）
 
 ```json
 {
+  "schema_version": "1.0",
+  "transform": {
+    "type": "orchestration",
+    "preserve_structure": true,
+    "preserve_order": true
+  },
+  "ensemble": {
+    "name": "custom_ensemble",
+    "size": "medium",
+    "target_size": 10,
+    "parts": [...]
+  },
+  "harmony_context": {
+    "method": "measure_pitchset_triadish",
+    "granularity": "per_measure"
+  },
   "constraints": {
     "lock_melody_events": {
       "enabled": true,
-      "compare_fields": ["abs_time", "type", "pitch", "velocity"]
+      "source_track_ref": "0",
+      "source_track_selection_mode": "auto"
     },
-    "keep_total_ticks": true
-  },
-  "arrangement": {
+    "keep_total_ticks": true,
     "guards": {
-      "avoid_melody_onsets": {
-        "enabled": true,
-        "window": {"post_ticks": 120},
-        "strategy": "reduce_velocity",
-        "reduce_ratio": 0.6
-      },
-      "register_separation": {
-        "enabled": true,
-        "anchor": "melody",
-        "min_semitones": 5
-      }
-    },
-    "harmony_context": {
-      "triad_pick": "heuristic",
-      "heuristic_rule": "bass_priority"
-    },
-    "templates": {
-      "piano": {
-        "allowed": ["alberti_8ths", "arpeggio_16ths", "offbeat_dyads", "tremolo_like", "register_shift"],
-        "variation_strength": 0.8
-      }
+      "velocity_caps": {},
+      "avoid_melody_onsets": true,
+      "onset_window_ticks": 120,
+      "onset_avoidance_action": "scale_velocity",
+      "register_separation": true
     }
   },
-  "mix": {
-    "velocity_caps_by_mode": {...},
-    "cc_by_mode": {...}
+  "arrangement": {
+    "reduce_ratio": 0.6,
+    "onset_avoidance_action": "scale_velocity",
+    "register_separation": true,
+    "min_semitones": 5,
+    "velocity_caps_by_mode": {},
+    "cc_by_mode": {},
+    "humanize": {"enabled": false},
+    "percussion": {"enabled": true, "phrase_block": 8, "density": 0.5}
   },
-  "humanize": {
-    "enabled": false
-  },
-  "percussion_policy": {
-    "phrase_block_measures": 8,
-    "timp": {"enabled": true, "vel_base": 35, "dur_ticks": 240},
-    "triangle": {"enabled": true, "vel_base": 25, "dur_ticks": 60}
+  "outputs": {
+    "midi": {
+      "enabled": true,
+      "filename": "arranged.mid"
+    }
   }
 }
 ```
+
+---
 
 ## License
 

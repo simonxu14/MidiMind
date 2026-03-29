@@ -42,7 +42,7 @@ class FluteCountermelodyTemplate(BaseTemplate):
         "velocity_base": 60,
         "velocity_range": 12,
         "register": "high",
-        "min_rest_beats": 1,  # P2-2: 最少 rest 时长（拍）
+        "min_rest_beats": 0.5,  # P2-2: 最少 rest 时长（拍），降低到0.5以适应连续旋律
     }
 
     REGISTER_RANGES = {
