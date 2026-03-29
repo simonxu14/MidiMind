@@ -1130,6 +1130,12 @@ class OrchestrateExecutor:
                     if action is None:
                         action = 'scale_velocity'  # 安全默认值
 
+                    # P1-1: 支持 per-instrument dict 策略
+                    if isinstance(action, dict):
+                        # 按 instrument 查找策略
+                        instrument = part.instrument.lower() if part.instrument else ""
+                        action = action.get(instrument, action.get('default', 'scale_velocity'))
+
                     if action == 'drop':
                         # 跳过该音符（不添加到 guarded_notes）
                         self._report_stats["onset_avoidance_hits"] += 1

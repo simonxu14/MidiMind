@@ -260,9 +260,9 @@ class GuardsConfig(BaseModel):
         description="旋律起音避让窗口（tick）"
     )
 
-    onset_avoidance_action: Literal["scale_velocity", "delay", "drop"] = Field(
+    onset_avoidance_action: Union[Literal["scale_velocity", "delay", "drop"], Dict[str, Literal["scale_velocity", "delay", "drop"]]] = Field(
         default="scale_velocity",
-        description="避让动作: scale_velocity=降力度, delay=延迟15-30ticks, drop=跳过该音符"
+        description="避让动作: 单值时全局策略，dict时按声部如 {'piano':'delay','timpani':'drop','triangle':'drop'}"
     )
 
     # 音区分离
@@ -593,9 +593,9 @@ class ArrangementConfig(BaseModel):
     avoid_melody_onsets: bool = Field(default=True, description="避让旋律起音")
     onset_window_ticks: int = Field(default=120, description="起音避让窗口")
     reduce_ratio: float = Field(default=0.6, description="避让时力度折减比")
-    onset_avoidance_action: Literal["scale_velocity", "delay", "drop"] = Field(
+    onset_avoidance_action: Union[Literal["scale_velocity", "delay", "drop"], Dict[str, Literal["scale_velocity", "delay", "drop"]]] = Field(
         default="scale_velocity",
-        description="避让动作: scale_velocity=降力度, delay=延迟15-30ticks, drop=跳过该音符"
+        description="避让动作: 单值时全局策略，dict时按声部如 {'piano':'delay','timpani':'drop','triangle':'drop'}"
     )
     register_separation: bool = Field(default=True, description="音区分离")
     min_semitones: int = Field(default=5, description="与旋律最小音程序离")

@@ -8,7 +8,15 @@
 
 ## 最近更新 (2026-03-29)
 
-### P1 修复（AnyGen 评估反馈）
+### PR-A/B/C 迭代（AnyGen 复查反馈）
+
+| PR | 问题 | 修复 | 文件 |
+|----|------|------|------|
+| PR-A | onset_avoidance 全局策略不够精细 | 升级为 per-instrument dict：`{"piano":"delay","timpani":"drop"}` | `plan_schema.py`, `orchestrate_executor.py` |
+| PR-B | triangle GM percussion 未确认 | 确认 `accent_cymbal.py` 使用 channel=9, note=81 | `templates/percussion/accent_cymbal.py` |
+| PR-C | 缺少量化回归测试 | 新增 `test_6_8_meter_regression` 含 triangle_gm/timp_range/flute_activity 检查 | `tests/test_integration.py` |
+
+### P1 修复（之前迭代）
 
 | 问题 | 修复 | 文件 |
 |------|------|------|
@@ -26,8 +34,9 @@
 |------|------|------|
 | Meter Grid API | 支持非 4/4 拍号（6/8, 9/8 等） | `timebase.py` |
 | OrchestrateExecutor 执行结果保存 | stats/validator_result/arrangement_report 写入 conversation | `orchestrate_executor.py`, `conversation.py` |
-| GuardsConfig.onset_avoidance_action | 三种避让策略配置 | `plan_schema.py` |
+| GuardsConfig.onset_avoidance_action | 三种避让策略 + per-instrument dict | `plan_schema.py` |
 | Arrangement.onset_avoidance_action | arrangement 级别的避让策略 | `plan_schema.py` |
+| 回归测试扩展 | 6/8 测试 + triangle_gm + timp_range + flute_activity 检查 | `tests/test_integration.py` | |
 
 ### 详细变更说明
 
@@ -46,13 +55,26 @@ else:
     range_min, range_max = (21, 108)
 ```
 
-#### 2. Onset Avoidance 三种策略
+#### 2. Onset Avoidance 三种策略 + Per-Instrument
 
 ```python
 # plan_schema.py - GuardsConfig
+# 单值时全局策略
 onset_avoidance_action: Literal["scale_velocity", "delay", "drop"] = "scale_velocity"
+# dict 时按声部策略
+onset_avoidance_action: Dict[str, Literal["scale_velocity", "delay", "drop"]] = {
+    "default": "scale_velocity",
+    "piano": "delay",     # 钢琴优先延迟
+    "viola": "delay",      # 中提琴优先延迟
+    "timpani": "drop",    # 定音鼓直接跳过
+    "triangle": "drop",    # 三角铁直接跳过
+}
 
 # orchestrate_executor.py - 策略执行
+if isinstance(action, dict):
+    instrument = part.instrument.lower()
+    action = action.get(instrument, action.get('default', 'scale_velocity'))
+
 if action == 'drop':
     continue  # 跳过该音符
 elif action == 'delay':

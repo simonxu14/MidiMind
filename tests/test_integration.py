@@ -294,3 +294,51 @@ class TestEndToEndArrangement:
             f"melody_identical failed: {validation_result.melody_identical.message}"
         assert validation_result.total_ticks_identical.passed, \
             f"total_ticks_identical failed: {validation_result.total_ticks_identical.message}"
+
+        # P0-2: 验证 triangle 使用 GM percussion channel 9, note 81
+        triangle_pitch_set = set()
+        triangle_channel_set = set()
+        for track_data in output_tracks:
+            track_name = None
+            for msg_type, params in track_data:
+                if msg_type == "track_name":
+                    track_name = params.get("name", "")
+                elif msg_type in ("note_on", "note_off") and track_name and "triangle" in track_name.lower():
+                    if msg_type == "note_on" and params.get("velocity", 0) > 0:
+                        triangle_pitch_set.add(params.get("note"))
+                        triangle_channel_set.add(params.get("channel"))
+
+        # Triangle 应该使用 GM channel 9
+        if triangle_pitch_set:
+            assert 9 in triangle_channel_set, f"Triangle should use GM percussion channel 9, got {triangle_channel_set}"
+            # Triangle pitch 应该固定为 81 (Open Triangle)
+            assert triangle_pitch_set == {81}, f"Triangle pitch should be {{81}}, got {triangle_pitch_set}"
+
+        # P0-2: 验证 timpani pitch 在 45-53 范围内
+        timpani_pitch_set = set()
+        for track_data in output_tracks:
+            track_name = None
+            for msg_type, params in track_data:
+                if msg_type == "track_name":
+                    track_name = params.get("name", "")
+                elif msg_type in ("note_on", "note_off") and track_name and "timpani" in track_name.lower():
+                    if msg_type == "note_on" and params.get("velocity", 0) > 0:
+                        timpani_pitch_set.add(params.get("note"))
+
+        if timpani_pitch_set:
+            for pitch in timpani_pitch_set:
+                assert 45 <= pitch <= 53, f"Timpani pitch {pitch} out of range 45-53"
+
+        # P1: 验证 flute 活跃度（至少有一些音符）
+        flute_note_count = 0
+        for track_data in output_tracks:
+            track_name = None
+            for msg_type, params in track_data:
+                if msg_type == "track_name":
+                    track_name = params.get("name", "")
+                elif msg_type in ("note_on", "note_off") and track_name and "flute" in track_name.lower():
+                    if msg_type == "note_on" and params.get("velocity", 0) > 0:
+                        flute_note_count += 1
+
+        # Flute 应该有音符产出（至少 10 个）
+        assert flute_note_count >= 10, f"Flute activity too low: {flute_note_count} notes"
