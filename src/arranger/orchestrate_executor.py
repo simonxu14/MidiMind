@@ -89,6 +89,7 @@ class OrchestrateExecutor:
             "velocity_cap_hits": 0,  # velocity cap 命中次数
             "percussion_hits": {"timpani": 0, "triangle": 0},  # percussion 命中次数
             "section_modes": {},  # measure_idx -> mode
+            "fixes_applied": [],  # P2: AutoFixer 应用的修复列表
         }
 
     def execute(
@@ -223,6 +224,9 @@ class OrchestrateExecutor:
                     min_semitones=min_semitones,
                     chord_per_measure=chord_tuples
                 )
+
+            # P2: 捕获 AutoFixer 的 fixes_applied
+            self._report_stats["fixes_applied"] = fixer.get_fixes_applied()
 
             # 按 channel 分组回各声部
             channel_to_notes: Dict[int, List[NoteEvent]] = {}
@@ -1656,6 +1660,7 @@ class OrchestrateExecutor:
             },
             "percussion_hits": self._report_stats["percussion_hits"],
             "template_usage": self._report_stats["template_per_part"].copy(),
+            "fixes_applied": self._report_stats["fixes_applied"].copy(),
         }
 
         # 1. Section modes per 8-bar block
