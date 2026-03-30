@@ -344,3 +344,18 @@ class TestEndToEndArrangement:
 
         # Flute 应该有音符产出（至少 10 个）
         assert flute_note_count >= 10, f"Flute activity too low: {flute_note_count} notes"
+
+    def test_variable_meter_not_supported(self):
+        """
+        变拍号测试 - 记录为已知局限性
+
+        当前系统不支持真正的变拍号 MIDI：
+        - midi_io.py 只支持单一拍号
+        - 没有 time_signature change meta event 支持
+
+        如需支持，需要：
+        1. midi_io 支持写入 time_signature change 事件
+        2. analyze 支持检测 per-measure time_signature
+        3. meter_grid 需要知道每小节的拍号
+        """
+        pytest.skip("Variable meter is a known limitation - not yet implemented")

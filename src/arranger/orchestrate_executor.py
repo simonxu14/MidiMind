@@ -85,6 +85,7 @@ class OrchestrateExecutor:
             "onset_scale_velocity_hits": 0,  # onset 降速次数
             "onset_delay_hits": 0,  # onset 延迟次数
             "onset_drop_hits": 0,  # onset 跳过次数
+            "exact_onset_collisions_by_part": {},  # P1-2: part_id -> 剩余精确冲突数
             "velocity_cap_hits": 0,  # velocity cap 命中次数
             "percussion_hits": {"timpani": 0, "triangle": 0},  # percussion 命中次数
             "section_modes": {},  # measure_idx -> mode
@@ -1105,7 +1106,18 @@ class OrchestrateExecutor:
 
         guarded_notes: List[NoteEvent] = []
 
+        # P1-2: 初始化该 part 的精确冲突计数
+        part_id = part.id
+        if part_id not in self._report_stats["exact_onset_collisions_by_part"]:
+            self._report_stats["exact_onset_collisions_by_part"][part_id] = 0
+
+        # 构建 melody onset 集合（用于 O(1) 查找）
+        onset_set = set(melody_onsets)
+
         for start, end, pitch, velocity, channel in notes:
+            # P1-2: 检查该音符是否为精确 onset 冲突（处理前）
+            original_start = start
+            is_exact_collision = original_start in onset_set
             original_velocity = velocity
 
             # P2-3: Velocity cap 统计
@@ -1130,26 +1142,31 @@ class OrchestrateExecutor:
                     if action is None:
                         action = 'scale_velocity'  # 安全默认值
 
-                    # P1-1: 支持 per-instrument dict 策略
+                    # P1-1: 支持 per-part/instrument dict 策略
+                    # 查找顺序：part.id > instrument > default
                     if isinstance(action, dict):
-                        # 按 instrument 查找策略
+                        part_id = part.id.lower() if part.id else ""
                         instrument = part.instrument.lower() if part.instrument else ""
-                        action = action.get(instrument, action.get('default', 'scale_velocity'))
+                        # 先查 part.id，再查 instrument，最后 fallback 到 default
+                        action = action.get(part_id, action.get(instrument, action.get('default', 'scale_velocity')))
 
                     if action == 'drop':
                         # 跳过该音符（不添加到 guarded_notes）
+                        # drop 消除了冲突，不再计入 exact collision
                         self._report_stats["onset_avoidance_hits"] += 1
                         self._report_stats["onset_drop_hits"] += 1
                         continue
 
                     elif action == 'delay':
                         # 延迟 15-30 ticks（1/32-1/16 拍）
+                        # delay 后 tick 改变，不再是 exact collision
                         import random
                         delay_ticks = random.randint(15, 30)
                         start = start + delay_ticks
                         end = end + delay_ticks
                         self._report_stats["onset_avoidance_hits"] += 1
                         self._report_stats["onset_delay_hits"] += 1
+                        # delay 后不再计入 exact collision
 
                     else:  # scale_velocity (default)
                         reduce_ratio = 0.6  # 默认值
@@ -1158,6 +1175,14 @@ class OrchestrateExecutor:
                         velocity = int(velocity * reduce_ratio)
                         self._report_stats["onset_avoidance_hits"] += 1
                         self._report_stats["onset_scale_velocity_hits"] += 1
+                        # P1-2: scale_velocity 不改变 tick，所以 exact collision 仍然存在
+                        if is_exact_collision:
+                            self._report_stats["exact_onset_collisions_by_part"][part_id] += 1
+            else:
+                # avoid_onsets=False 时，所有音符都不会被处理
+                # 如果音符恰好在 exact onset tick 上，仍然算冲突
+                if is_exact_collision:
+                    self._report_stats["exact_onset_collisions_by_part"][part_id] += 1
 
             # 音域裁剪
             if pitch < range_min:
@@ -1626,6 +1651,7 @@ class OrchestrateExecutor:
                 "onset_scale_velocity_hits": self._report_stats["onset_scale_velocity_hits"],
                 "onset_delay_hits": self._report_stats["onset_delay_hits"],
                 "onset_drop_hits": self._report_stats["onset_drop_hits"],
+                "exact_onset_collisions_by_part": self._report_stats["exact_onset_collisions_by_part"].copy(),
                 "velocity_cap_hits": self._report_stats["velocity_cap_hits"],
             },
             "percussion_hits": self._report_stats["percussion_hits"],

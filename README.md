@@ -6,7 +6,27 @@
 
 ---
 
-## 最近更新 (2026-03-29)
+## 最近更新 (2026-03-30)
+
+### AnyGen 最新复查反馈迭代
+
+| 项目 | 问题 | 修复 | 状态 |
+|------|------|------|------|
+| P1-2 | exact_onset_collisions 指标缺失 | 新增 `exact_onset_collisions_by_part` 写入 report | ✅ 已完成 |
+| P1-1 | onset policy 只支持 per-instrument | 升级为 per-part 优先（part.id > instrument > default） | ✅ 已完成 |
+| P0-1 | 模板 channel 硬编码 | Executor 已实现 channel 注入（line 177-181），模板值被覆盖 | ✅ 架构已正确 |
+| P2 | 变拍号 fixture | 添加 skip 标记，记录为已知局限性 | ✅ 已记录 |
+
+### Union 导入 Bug 修复
+
+| 问题 | 修复 | 文件 |
+|------|------|------|
+| Pydantic Union 类型报错 | 补齐 `from typing import Union` | `plan_schema.py` |
+| flute 轨道名匹配 | 支持 part.id "fl" 和 instrument "flute" | `tests/test_integration.py` |
+
+---
+
+## 历史更新 (2026-03-29)
 
 ### PR-A/B/C 迭代（AnyGen 复查反馈）
 
@@ -36,7 +56,7 @@
 | OrchestrateExecutor 执行结果保存 | stats/validator_result/arrangement_report 写入 conversation | `orchestrate_executor.py`, `conversation.py` |
 | GuardsConfig.onset_avoidance_action | 三种避让策略 + per-instrument dict | `plan_schema.py` |
 | Arrangement.onset_avoidance_action | arrangement 级别的避让策略 | `plan_schema.py` |
-| 回归测试扩展 | 6/8 测试 + triangle_gm + timp_range + flute_activity 检查 | `tests/test_integration.py` | |
+| 回归测试扩展 | 6/8 测试 + triangle_gm + timp_range + flute_activity 检查 | `tests/test_integration.py` |
 
 ### 详细变更说明
 
@@ -70,10 +90,11 @@ onset_avoidance_action: Dict[str, Literal["scale_velocity", "delay", "drop"]] = 
     "triangle": "drop",    # 三角铁直接跳过
 }
 
-# orchestrate_executor.py - 策略执行
+# orchestrate_executor.py - 策略执行（part.id > instrument > default）
 if isinstance(action, dict):
-    instrument = part.instrument.lower()
-    action = action.get(instrument, action.get('default', 'scale_velocity'))
+    part_id = part.id.lower()
+    instrument = part.instrument.lower() if part.instrument else ""
+    action = action.get(part_id, action.get(instrument, action.get('default', 'scale_velocity')))
 
 if action == 'drop':
     continue  # 跳过该音符
@@ -119,6 +140,7 @@ self._report_stats = {
     "onset_scale_velocity_hits": 0,  # 新增
     "onset_delay_hits": 0,          # 新增
     "onset_drop_hits": 0,           # 新增
+    "exact_onset_collisions_by_part": {},  # P1-2: part_id -> 剩余精确冲突数
     "velocity_cap_hits": 0,
     "percussion_hits": {"timpani": 0, "triangle": 0},
     # ...
