@@ -330,14 +330,16 @@ class TestEndToEndArrangement:
                 assert 45 <= pitch <= 53, f"Timpani pitch {pitch} out of range 45-53"
 
         # P1: 验证 flute 活跃度（至少有一些音符）
+        # 注意：轨道名可能是 "fl" (part.id) 或 "flute" (instrument name)
         flute_note_count = 0
         for track_data in output_tracks:
             track_name = None
             for msg_type, params in track_data:
                 if msg_type == "track_name":
                     track_name = params.get("name", "")
-                elif msg_type in ("note_on", "note_off") and track_name and "flute" in track_name.lower():
-                    if msg_type == "note_on" and params.get("velocity", 0) > 0:
+                elif msg_type in ("note_on", "note_off") and track_name:
+                    is_flute = track_name.lower() == "fl" or "flute" in track_name.lower()
+                    if is_flute and msg_type == "note_on" and params.get("velocity", 0) > 0:
                         flute_note_count += 1
 
         # Flute 应该有音符产出（至少 10 个）

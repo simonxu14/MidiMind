@@ -7,7 +7,7 @@ Plan Schema 定义 - MVP v1.0
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional, Literal, Tuple, List, Dict, Any
+from typing import Optional, Literal, Tuple, List, Dict, Any, Union
 
 from pydantic import BaseModel, Field, ConfigDict
 
