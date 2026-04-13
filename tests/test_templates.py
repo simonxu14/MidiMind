@@ -2,6 +2,8 @@
 测试模板系统
 """
 
+import random
+
 import pytest
 from arranger.templates.registry import TemplateRegistry, get_registry
 from arranger.templates.base import BaseTemplate
@@ -200,3 +202,55 @@ class TestCelloPedalRootTemplate:
             tick, end_tick, pitch, velocity, channel = note
             # 大提琴低音区范围是 36-55
             assert 36 <= pitch <= 55
+
+
+class TestDenseAccompanimentTemplate:
+    def test_generate_6_8_notes_stay_within_measure(self):
+        reg = get_registry()
+        template = reg.get("dense_accompaniment")
+        assert template is not None
+
+        context = ArrangementContext(
+            chord_per_measure={
+                0: ChordInfo(root=60, third=64, fifth=67, quality="major"),
+            },
+            measure_len=1440,
+            ticks_per_beat=480,
+            time_signature_num=6,
+            time_signature_den=8,
+            tempo=76,
+        )
+
+        random.seed(0)
+        notes = template.generate(context, {"density": 1.0})
+
+        assert notes
+        assert all(0 <= start < 1440 for start, _, _, _, _ in notes)
+        assert all(0 < end <= 1440 for _, end, _, _, _ in notes)
+
+
+class TestFluteCountermelodyTemplate:
+    def test_generate_fallback_phrase_when_gaps_exist(self):
+        reg = get_registry()
+        template = reg.get("flute_countermelody")
+        assert template is not None
+
+        context = ArrangementContext(
+            chord_per_measure={
+                0: ChordInfo(root=60, third=64, fifth=67, quality="major"),
+                1: ChordInfo(root=62, third=65, fifth=69, quality="minor"),
+            },
+            measure_len=1920,
+            ticks_per_beat=480,
+            time_signature_num=4,
+            time_signature_den=4,
+            melody_notes=[
+                (0, 240, 72, 64, 0),
+                (1920, 2160, 74, 64, 0),
+            ],
+        )
+
+        random.seed(1)
+        notes = template.generate(context, {"density": 0.0})
+
+        assert notes

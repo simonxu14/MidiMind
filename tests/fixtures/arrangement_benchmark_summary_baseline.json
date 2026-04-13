@@ -1,0 +1,2469 @@
+{
+  "metadata": {
+    "suite": "arrangement",
+    "mode": "deterministic_profiles",
+    "case_generation": "sample_profile_matrix"
+  },
+  "totals": {
+    "cases": 24,
+    "passed": 24,
+    "warned": 0,
+    "failed": 0,
+    "validation_passed": 24,
+    "validation_failed": 0,
+    "average_score": 100.0,
+    "low_confidence_cases": 0
+  },
+  "issue_counts": {},
+  "recommendations": [],
+  "cases": [
+    {
+      "name": "匆匆那年__piano_trio",
+      "sample": {
+        "name": "匆匆那年",
+        "source_name": "匆匆那年.mid",
+        "source_type": "fixture",
+        "track_count": 2,
+        "ticks_per_beat": 384,
+        "tempo": 120.0,
+        "time_signature": "4/4",
+        "total_ticks": 190272,
+        "melody_track_index": 1,
+        "melody_confidence": 0.35
+      },
+      "profile": {
+        "name": "piano_trio",
+        "description": "Melody-led piano trio with stable bass support.",
+        "expected_parts": 3,
+        "max_fix_rate_per_100_notes": 22.0
+      },
+      "execution": {
+        "track_count": 3,
+        "parts_count": 3,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello"
+        ],
+        "total_notes": 6918,
+        "non_melody_note_count": 1520,
+        "measure_count": 124,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 1932,
+            "avg_velocity": 61.42,
+            "avg_pitch": 65.62
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 1424,
+            "avg_velocity": 34.9,
+            "avg_pitch": 55.41
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 96,
+            "avg_velocity": 45.0,
+            "avg_pitch": 50.88
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical (order-insensitive polyphonic match)"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 1136,
+        "fix_rate_per_100_notes": 16.42,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.54,
+        "accompaniment_avg_velocity": 39.95
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "匆匆那年__string_quartet",
+      "sample": {
+        "name": "匆匆那年",
+        "source_name": "匆匆那年.mid",
+        "source_type": "fixture",
+        "track_count": 2,
+        "ticks_per_beat": 384,
+        "tempo": 120.0,
+        "time_signature": "4/4",
+        "total_ticks": 190272,
+        "melody_track_index": 1,
+        "melody_confidence": 0.35
+      },
+      "profile": {
+        "name": "string_quartet",
+        "description": "String quartet texture with explicit inner voices.",
+        "expected_parts": 4,
+        "max_fix_rate_per_100_notes": 18.0
+      },
+      "execution": {
+        "track_count": 4,
+        "parts_count": 4,
+        "instrument_list": [
+          "Violin I",
+          "Violin II",
+          "Viola",
+          "Cello"
+        ],
+        "total_notes": 6582,
+        "non_melody_note_count": 1350,
+        "measure_count": 124,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 1932,
+            "avg_velocity": 61.42,
+            "avg_pitch": 65.62
+          },
+          {
+            "track_name": "vn2",
+            "note_on_count": 228,
+            "avg_velocity": 37.21,
+            "avg_pitch": 61.77
+          },
+          {
+            "track_name": "va",
+            "note_on_count": 1026,
+            "avg_velocity": 27.05,
+            "avg_pitch": 64.44
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 96,
+            "avg_velocity": 45.0,
+            "avg_pitch": 60.62
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical (order-insensitive polyphonic match)"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 741,
+        "fix_rate_per_100_notes": 11.26,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.69,
+        "accompaniment_avg_velocity": 36.42
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "匆匆那年__chamber_mixed",
+      "sample": {
+        "name": "匆匆那年",
+        "source_name": "匆匆那年.mid",
+        "source_type": "fixture",
+        "track_count": 2,
+        "ticks_per_beat": 384,
+        "tempo": 120.0,
+        "time_signature": "4/4",
+        "total_ticks": 190272,
+        "melody_track_index": 1,
+        "melody_confidence": 0.35
+      },
+      "profile": {
+        "name": "chamber_mixed",
+        "description": "Mixed chamber ensemble with winds layered on top of strings and piano.",
+        "expected_parts": 5,
+        "max_fix_rate_per_100_notes": 28.0
+      },
+      "execution": {
+        "track_count": 5,
+        "parts_count": 5,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello",
+          "Flute",
+          "Clarinet"
+        ],
+        "total_notes": 7252,
+        "non_melody_note_count": 1683,
+        "measure_count": 124,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 1932,
+            "avg_velocity": 61.42,
+            "avg_pitch": 65.62
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 1295,
+            "avg_velocity": 34.67,
+            "avg_pitch": 55.27
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 94,
+            "avg_velocity": 44.94,
+            "avg_pitch": 51.17
+          },
+          {
+            "track_name": "fl",
+            "note_on_count": 8,
+            "avg_velocity": 51.25,
+            "avg_pitch": 75.0
+          },
+          {
+            "track_name": "cl",
+            "note_on_count": 286,
+            "avg_velocity": 41.38,
+            "avg_pitch": 56.84
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical (order-insensitive polyphonic match)"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 1253,
+        "fix_rate_per_100_notes": 17.28,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.43,
+        "accompaniment_avg_velocity": 43.06
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "我和我的祖国__piano_trio",
+      "sample": {
+        "name": "我和我的祖国",
+        "source_name": "我和我的祖国.mid",
+        "source_type": "fixture",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 76.0,
+        "time_signature": "6/8",
+        "total_ticks": 92160,
+        "melody_track_index": 1,
+        "melody_confidence": 0.871
+      },
+      "profile": {
+        "name": "piano_trio",
+        "description": "Melody-led piano trio with stable bass support.",
+        "expected_parts": 3,
+        "max_fix_rate_per_100_notes": 22.0
+      },
+      "execution": {
+        "track_count": 3,
+        "parts_count": 3,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello"
+        ],
+        "total_notes": 1202,
+        "non_melody_note_count": 347,
+        "measure_count": 64,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 247,
+            "avg_velocity": 65.07,
+            "avg_pitch": 66.3
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 299,
+            "avg_velocity": 42.15,
+            "avg_pitch": 65.54
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 48,
+            "avg_velocity": 36.0,
+            "avg_pitch": 58.85
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 148,
+        "fix_rate_per_100_notes": 12.31,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.67,
+        "accompaniment_avg_velocity": 39.08
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "我和我的祖国__string_quartet",
+      "sample": {
+        "name": "我和我的祖国",
+        "source_name": "我和我的祖国.mid",
+        "source_type": "fixture",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 76.0,
+        "time_signature": "6/8",
+        "total_ticks": 92160,
+        "melody_track_index": 1,
+        "melody_confidence": 0.871
+      },
+      "profile": {
+        "name": "string_quartet",
+        "description": "String quartet texture with explicit inner voices.",
+        "expected_parts": 4,
+        "max_fix_rate_per_100_notes": 18.0
+      },
+      "execution": {
+        "track_count": 4,
+        "parts_count": 4,
+        "instrument_list": [
+          "Violin I",
+          "Violin II",
+          "Viola",
+          "Cello"
+        ],
+        "total_notes": 1664,
+        "non_melody_note_count": 576,
+        "measure_count": 64,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 247,
+            "avg_velocity": 65.07,
+            "avg_pitch": 66.3
+          },
+          {
+            "track_name": "vn2",
+            "note_on_count": 18,
+            "avg_velocity": 40.83,
+            "avg_pitch": 66.17
+          },
+          {
+            "track_name": "va",
+            "note_on_count": 510,
+            "avg_velocity": 38.0,
+            "avg_pitch": 75.72
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 48,
+            "avg_velocity": 36.0,
+            "avg_pitch": 54.08
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 176,
+        "fix_rate_per_100_notes": 10.58,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.7,
+        "accompaniment_avg_velocity": 38.28
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "我和我的祖国__chamber_mixed",
+      "sample": {
+        "name": "我和我的祖国",
+        "source_name": "我和我的祖国.mid",
+        "source_type": "fixture",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 76.0,
+        "time_signature": "6/8",
+        "total_ticks": 92160,
+        "melody_track_index": 1,
+        "melody_confidence": 0.871
+      },
+      "profile": {
+        "name": "chamber_mixed",
+        "description": "Mixed chamber ensemble with winds layered on top of strings and piano.",
+        "expected_parts": 5,
+        "max_fix_rate_per_100_notes": 28.0
+      },
+      "execution": {
+        "track_count": 5,
+        "parts_count": 5,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello",
+          "Flute",
+          "Clarinet"
+        ],
+        "total_notes": 1364,
+        "non_melody_note_count": 424,
+        "measure_count": 64,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 247,
+            "avg_velocity": 65.07,
+            "avg_pitch": 66.3
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 228,
+            "avg_velocity": 42.09,
+            "avg_pitch": 65.38
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 48,
+            "avg_velocity": 36.0,
+            "avg_pitch": 58.4
+          },
+          {
+            "track_name": "fl",
+            "note_on_count": 4,
+            "avg_velocity": 32.0,
+            "avg_pitch": 68.0
+          },
+          {
+            "track_name": "cl",
+            "note_on_count": 144,
+            "avg_velocity": 33.0,
+            "avg_pitch": 65.19
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 211,
+        "fix_rate_per_100_notes": 15.47,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.82,
+        "accompaniment_avg_velocity": 35.77
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "稻香__piano_trio",
+      "sample": {
+        "name": "稻香",
+        "source_name": "稻香.mid",
+        "source_type": "fixture",
+        "track_count": 3,
+        "ticks_per_beat": 480,
+        "tempo": 81.0,
+        "time_signature": "4/4",
+        "total_ticks": 138219,
+        "melody_track_index": 1,
+        "melody_confidence": 0.504
+      },
+      "profile": {
+        "name": "piano_trio",
+        "description": "Melody-led piano trio with stable bass support.",
+        "expected_parts": 3,
+        "max_fix_rate_per_100_notes": 22.0
+      },
+      "execution": {
+        "track_count": 3,
+        "parts_count": 3,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello"
+        ],
+        "total_notes": 2506,
+        "non_melody_note_count": 667,
+        "measure_count": 72,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 579,
+            "avg_velocity": 80.65,
+            "avg_pitch": 70.45
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 595,
+            "avg_velocity": 40.44,
+            "avg_pitch": 48.98
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 72,
+            "avg_velocity": 38.33,
+            "avg_pitch": 46.51
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 183,
+        "fix_rate_per_100_notes": 7.3,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 2.05,
+        "accompaniment_avg_velocity": 39.38
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "稻香__string_quartet",
+      "sample": {
+        "name": "稻香",
+        "source_name": "稻香.mid",
+        "source_type": "fixture",
+        "track_count": 3,
+        "ticks_per_beat": 480,
+        "tempo": 81.0,
+        "time_signature": "4/4",
+        "total_ticks": 138219,
+        "melody_track_index": 1,
+        "melody_confidence": 0.504
+      },
+      "profile": {
+        "name": "string_quartet",
+        "description": "String quartet texture with explicit inner voices.",
+        "expected_parts": 4,
+        "max_fix_rate_per_100_notes": 18.0
+      },
+      "execution": {
+        "track_count": 4,
+        "parts_count": 4,
+        "instrument_list": [
+          "Violin I",
+          "Violin II",
+          "Viola",
+          "Cello"
+        ],
+        "total_notes": 2866,
+        "non_melody_note_count": 845,
+        "measure_count": 72,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 579,
+            "avg_velocity": 80.65,
+            "avg_pitch": 70.45
+          },
+          {
+            "track_name": "vn2",
+            "note_on_count": 124,
+            "avg_velocity": 40.4,
+            "avg_pitch": 66.09
+          },
+          {
+            "track_name": "va",
+            "note_on_count": 649,
+            "avg_velocity": 37.98,
+            "avg_pitch": 64.43
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 72,
+            "avg_velocity": 38.33,
+            "avg_pitch": 53.21
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 239,
+        "fix_rate_per_100_notes": 8.34,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 2.07,
+        "accompaniment_avg_velocity": 38.9
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "稻香__chamber_mixed",
+      "sample": {
+        "name": "稻香",
+        "source_name": "稻香.mid",
+        "source_type": "fixture",
+        "track_count": 3,
+        "ticks_per_beat": 480,
+        "tempo": 81.0,
+        "time_signature": "4/4",
+        "total_ticks": 138219,
+        "melody_track_index": 1,
+        "melody_confidence": 0.504
+      },
+      "profile": {
+        "name": "chamber_mixed",
+        "description": "Mixed chamber ensemble with winds layered on top of strings and piano.",
+        "expected_parts": 5,
+        "max_fix_rate_per_100_notes": 28.0
+      },
+      "execution": {
+        "track_count": 5,
+        "parts_count": 5,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello",
+          "Flute",
+          "Clarinet"
+        ],
+        "total_notes": 2828,
+        "non_melody_note_count": 824,
+        "measure_count": 72,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 579,
+            "avg_velocity": 80.65,
+            "avg_pitch": 70.45
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 472,
+            "avg_velocity": 40.35,
+            "avg_pitch": 48.72
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 72,
+            "avg_velocity": 38.33,
+            "avg_pitch": 46.86
+          },
+          {
+            "track_name": "fl",
+            "note_on_count": 64,
+            "avg_velocity": 48.84,
+            "avg_pitch": 74.83
+          },
+          {
+            "track_name": "cl",
+            "note_on_count": 216,
+            "avg_velocity": 35.14,
+            "avg_pitch": 55.35
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 239,
+        "fix_rate_per_100_notes": 8.45,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.98,
+        "accompaniment_avg_velocity": 40.67
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_ballad_4_4__piano_trio",
+      "sample": {
+        "name": "generated_ballad_4_4",
+        "source_name": "generated_ballad_4_4.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 84.0,
+        "time_signature": "4/4",
+        "total_ticks": 7680,
+        "melody_track_index": 1,
+        "melody_confidence": 1.0
+      },
+      "profile": {
+        "name": "piano_trio",
+        "description": "Melody-led piano trio with stable bass support.",
+        "expected_parts": 3,
+        "max_fix_rate_per_100_notes": 22.0
+      },
+      "execution": {
+        "track_count": 3,
+        "parts_count": 3,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello"
+        ],
+        "total_notes": 114,
+        "non_melody_note_count": 34,
+        "measure_count": 4,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 16,
+            "avg_velocity": 68.0,
+            "avg_pitch": 67.94
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 30,
+            "avg_velocity": 42.7,
+            "avg_pitch": 66.37
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 4,
+            "avg_velocity": 36.0,
+            "avg_pitch": 53.5
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 21,
+        "fix_rate_per_100_notes": 18.42,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.73,
+        "accompaniment_avg_velocity": 39.35
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_ballad_4_4__string_quartet",
+      "sample": {
+        "name": "generated_ballad_4_4",
+        "source_name": "generated_ballad_4_4.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 84.0,
+        "time_signature": "4/4",
+        "total_ticks": 7680,
+        "melody_track_index": 1,
+        "melody_confidence": 1.0
+      },
+      "profile": {
+        "name": "string_quartet",
+        "description": "String quartet texture with explicit inner voices.",
+        "expected_parts": 4,
+        "max_fix_rate_per_100_notes": 18.0
+      },
+      "execution": {
+        "track_count": 4,
+        "parts_count": 4,
+        "instrument_list": [
+          "Violin I",
+          "Violin II",
+          "Viola",
+          "Cello"
+        ],
+        "total_notes": 162,
+        "non_melody_note_count": 56,
+        "measure_count": 4,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 16,
+            "avg_velocity": 68.0,
+            "avg_pitch": 67.94
+          },
+          {
+            "track_name": "vn2",
+            "note_on_count": 4,
+            "avg_velocity": 39.0,
+            "avg_pitch": 70.75
+          },
+          {
+            "track_name": "va",
+            "note_on_count": 48,
+            "avg_velocity": 38.1,
+            "avg_pitch": 80.33
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 4,
+            "avg_velocity": 36.0,
+            "avg_pitch": 53.0
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 17,
+        "fix_rate_per_100_notes": 10.49,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.8,
+        "accompaniment_avg_velocity": 37.7
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_ballad_4_4__chamber_mixed",
+      "sample": {
+        "name": "generated_ballad_4_4",
+        "source_name": "generated_ballad_4_4.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 84.0,
+        "time_signature": "4/4",
+        "total_ticks": 7680,
+        "melody_track_index": 1,
+        "melody_confidence": 1.0
+      },
+      "profile": {
+        "name": "chamber_mixed",
+        "description": "Mixed chamber ensemble with winds layered on top of strings and piano.",
+        "expected_parts": 5,
+        "max_fix_rate_per_100_notes": 28.0
+      },
+      "execution": {
+        "track_count": 5,
+        "parts_count": 5,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello",
+          "Flute",
+          "Clarinet"
+        ],
+        "total_notes": 124,
+        "non_melody_note_count": 35,
+        "measure_count": 4,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 16,
+            "avg_velocity": 68.0,
+            "avg_pitch": 67.94
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 17,
+            "avg_velocity": 41.47,
+            "avg_pitch": 65.65
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 4,
+            "avg_velocity": 36.0,
+            "avg_pitch": 59.5
+          },
+          {
+            "track_name": "fl",
+            "note_on_count": 2,
+            "avg_velocity": 32.0,
+            "avg_pitch": 66.0
+          },
+          {
+            "track_name": "cl",
+            "note_on_count": 12,
+            "avg_velocity": 33.0,
+            "avg_pitch": 70.58
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 28,
+        "fix_rate_per_100_notes": 22.58,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.91,
+        "accompaniment_avg_velocity": 35.62
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_compound_6_8__piano_trio",
+      "sample": {
+        "name": "generated_compound_6_8",
+        "source_name": "generated_compound_6_8.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 78.0,
+        "time_signature": "6/8",
+        "total_ticks": 11520,
+        "melody_track_index": 1,
+        "melody_confidence": 1.0
+      },
+      "profile": {
+        "name": "piano_trio",
+        "description": "Melody-led piano trio with stable bass support.",
+        "expected_parts": 3,
+        "max_fix_rate_per_100_notes": 22.0
+      },
+      "execution": {
+        "track_count": 3,
+        "parts_count": 3,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello"
+        ],
+        "total_notes": 138,
+        "non_melody_note_count": 40,
+        "measure_count": 8,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 24,
+            "avg_velocity": 66.0,
+            "avg_pitch": 72.83
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 34,
+            "avg_velocity": 45.62,
+            "avg_pitch": 72.71
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 6,
+            "avg_velocity": 36.0,
+            "avg_pitch": 59.33
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 23,
+        "fix_rate_per_100_notes": 16.67,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.62,
+        "accompaniment_avg_velocity": 40.81
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_compound_6_8__string_quartet",
+      "sample": {
+        "name": "generated_compound_6_8",
+        "source_name": "generated_compound_6_8.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 78.0,
+        "time_signature": "6/8",
+        "total_ticks": 11520,
+        "melody_track_index": 1,
+        "melody_confidence": 1.0
+      },
+      "profile": {
+        "name": "string_quartet",
+        "description": "String quartet texture with explicit inner voices.",
+        "expected_parts": 4,
+        "max_fix_rate_per_100_notes": 18.0
+      },
+      "execution": {
+        "track_count": 4,
+        "parts_count": 4,
+        "instrument_list": [
+          "Violin I",
+          "Violin II",
+          "Viola",
+          "Cello"
+        ],
+        "total_notes": 212,
+        "non_melody_note_count": 76,
+        "measure_count": 8,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 24,
+            "avg_velocity": 66.0,
+            "avg_pitch": 72.83
+          },
+          {
+            "track_name": "vn2",
+            "note_on_count": 4,
+            "avg_velocity": 44.75,
+            "avg_pitch": 70.25
+          },
+          {
+            "track_name": "va",
+            "note_on_count": 66,
+            "avg_velocity": 38.05,
+            "avg_pitch": 84.0
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 6,
+            "avg_velocity": 36.0,
+            "avg_pitch": 60.33
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 28,
+        "fix_rate_per_100_notes": 13.21,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.67,
+        "accompaniment_avg_velocity": 39.6
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_compound_6_8__chamber_mixed",
+      "sample": {
+        "name": "generated_compound_6_8",
+        "source_name": "generated_compound_6_8.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 78.0,
+        "time_signature": "6/8",
+        "total_ticks": 11520,
+        "melody_track_index": 1,
+        "melody_confidence": 1.0
+      },
+      "profile": {
+        "name": "chamber_mixed",
+        "description": "Mixed chamber ensemble with winds layered on top of strings and piano.",
+        "expected_parts": 5,
+        "max_fix_rate_per_100_notes": 28.0
+      },
+      "execution": {
+        "track_count": 5,
+        "parts_count": 5,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello",
+          "Flute",
+          "Clarinet"
+        ],
+        "total_notes": 188,
+        "non_melody_note_count": 63,
+        "measure_count": 8,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 24,
+            "avg_velocity": 66.0,
+            "avg_pitch": 72.83
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 37,
+            "avg_velocity": 45.41,
+            "avg_pitch": 72.81
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 6,
+            "avg_velocity": 36.0,
+            "avg_pitch": 69.83
+          },
+          {
+            "track_name": "fl",
+            "note_on_count": 2,
+            "avg_velocity": 32.0,
+            "avg_pitch": 64.0
+          },
+          {
+            "track_name": "cl",
+            "note_on_count": 18,
+            "avg_velocity": 33.0,
+            "avg_pitch": 71.22
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 45,
+        "fix_rate_per_100_notes": 23.94,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.8,
+        "accompaniment_avg_velocity": 36.6
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_waltz_3_4__piano_trio",
+      "sample": {
+        "name": "generated_waltz_3_4",
+        "source_name": "generated_waltz_3_4.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 96.0,
+        "time_signature": "3/4",
+        "total_ticks": 5760,
+        "melody_track_index": 1,
+        "melody_confidence": 1.0
+      },
+      "profile": {
+        "name": "piano_trio",
+        "description": "Melody-led piano trio with stable bass support.",
+        "expected_parts": 3,
+        "max_fix_rate_per_100_notes": 22.0
+      },
+      "execution": {
+        "track_count": 3,
+        "parts_count": 3,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello"
+        ],
+        "total_notes": 74,
+        "non_melody_note_count": 20,
+        "measure_count": 4,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 12,
+            "avg_velocity": 64.0,
+            "avg_pitch": 73.58
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 17,
+            "avg_velocity": 46.18,
+            "avg_pitch": 74.53
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 3,
+            "avg_velocity": 36.0,
+            "avg_pitch": 63.67
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 9,
+        "fix_rate_per_100_notes": 12.16,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.56,
+        "accompaniment_avg_velocity": 41.09
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_waltz_3_4__string_quartet",
+      "sample": {
+        "name": "generated_waltz_3_4",
+        "source_name": "generated_waltz_3_4.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 96.0,
+        "time_signature": "3/4",
+        "total_ticks": 5760,
+        "melody_track_index": 1,
+        "melody_confidence": 1.0
+      },
+      "profile": {
+        "name": "string_quartet",
+        "description": "String quartet texture with explicit inner voices.",
+        "expected_parts": 4,
+        "max_fix_rate_per_100_notes": 18.0
+      },
+      "execution": {
+        "track_count": 4,
+        "parts_count": 4,
+        "instrument_list": [
+          "Violin I",
+          "Violin II",
+          "Viola",
+          "Cello"
+        ],
+        "total_notes": 122,
+        "non_melody_note_count": 43,
+        "measure_count": 4,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 12,
+            "avg_velocity": 64.0,
+            "avg_pitch": 73.58
+          },
+          {
+            "track_name": "vn2",
+            "note_on_count": 4,
+            "avg_velocity": 39.75,
+            "avg_pitch": 72.5
+          },
+          {
+            "track_name": "va",
+            "note_on_count": 36,
+            "avg_velocity": 38.03,
+            "avg_pitch": 84.19
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 3,
+            "avg_velocity": 36.0,
+            "avg_pitch": 55.0
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 15,
+        "fix_rate_per_100_notes": 12.3,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.69,
+        "accompaniment_avg_velocity": 37.93
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_waltz_3_4__chamber_mixed",
+      "sample": {
+        "name": "generated_waltz_3_4",
+        "source_name": "generated_waltz_3_4.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 96.0,
+        "time_signature": "3/4",
+        "total_ticks": 5760,
+        "melody_track_index": 1,
+        "melody_confidence": 1.0
+      },
+      "profile": {
+        "name": "chamber_mixed",
+        "description": "Mixed chamber ensemble with winds layered on top of strings and piano.",
+        "expected_parts": 5,
+        "max_fix_rate_per_100_notes": 28.0
+      },
+      "execution": {
+        "track_count": 5,
+        "parts_count": 5,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello",
+          "Flute",
+          "Clarinet"
+        ],
+        "total_notes": 90,
+        "non_melody_note_count": 26,
+        "measure_count": 4,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 12,
+            "avg_velocity": 64.0,
+            "avg_pitch": 73.58
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 12,
+            "avg_velocity": 45.17,
+            "avg_pitch": 70.25
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 3,
+            "avg_velocity": 36.0,
+            "avg_pitch": 63.67
+          },
+          {
+            "track_name": "fl",
+            "note_on_count": 2,
+            "avg_velocity": 32.0,
+            "avg_pitch": 68.0
+          },
+          {
+            "track_name": "cl",
+            "note_on_count": 9,
+            "avg_velocity": 33.0,
+            "avg_pitch": 70.56
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 18,
+        "fix_rate_per_100_notes": 20.0,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.75,
+        "accompaniment_avg_velocity": 36.54
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_syncopated_pop_4_4__piano_trio",
+      "sample": {
+        "name": "generated_syncopated_pop_4_4",
+        "source_name": "generated_syncopated_pop_4_4.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 108.0,
+        "time_signature": "4/4",
+        "total_ticks": 9600,
+        "melody_track_index": 1,
+        "melody_confidence": 1.0
+      },
+      "profile": {
+        "name": "piano_trio",
+        "description": "Melody-led piano trio with stable bass support.",
+        "expected_parts": 3,
+        "max_fix_rate_per_100_notes": 22.0
+      },
+      "execution": {
+        "track_count": 3,
+        "parts_count": 3,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello"
+        ],
+        "total_notes": 200,
+        "non_melody_note_count": 77,
+        "measure_count": 5,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 16,
+            "avg_velocity": 70.0,
+            "avg_pitch": 68.75
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 72,
+            "avg_velocity": 41.67,
+            "avg_pitch": 70.06
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 5,
+            "avg_velocity": 50.4,
+            "avg_pitch": 74.0
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 44,
+        "fix_rate_per_100_notes": 22.0,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.52,
+        "accompaniment_avg_velocity": 46.03
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_syncopated_pop_4_4__string_quartet",
+      "sample": {
+        "name": "generated_syncopated_pop_4_4",
+        "source_name": "generated_syncopated_pop_4_4.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 108.0,
+        "time_signature": "4/4",
+        "total_ticks": 9600,
+        "melody_track_index": 1,
+        "melody_confidence": 1.0
+      },
+      "profile": {
+        "name": "string_quartet",
+        "description": "String quartet texture with explicit inner voices.",
+        "expected_parts": 4,
+        "max_fix_rate_per_100_notes": 18.0
+      },
+      "execution": {
+        "track_count": 4,
+        "parts_count": 4,
+        "instrument_list": [
+          "Violin I",
+          "Violin II",
+          "Viola",
+          "Cello"
+        ],
+        "total_notes": 212,
+        "non_melody_note_count": 81,
+        "measure_count": 5,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 16,
+            "avg_velocity": 70.0,
+            "avg_pitch": 68.75
+          },
+          {
+            "track_name": "vn2",
+            "note_on_count": 12,
+            "avg_velocity": 42.17,
+            "avg_pitch": 71.08
+          },
+          {
+            "track_name": "va",
+            "note_on_count": 64,
+            "avg_velocity": 37.77,
+            "avg_pitch": 83.31
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 5,
+            "avg_velocity": 50.4,
+            "avg_pitch": 82.2
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 20,
+        "fix_rate_per_100_notes": 9.43,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.61,
+        "accompaniment_avg_velocity": 43.45
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_syncopated_pop_4_4__chamber_mixed",
+      "sample": {
+        "name": "generated_syncopated_pop_4_4",
+        "source_name": "generated_syncopated_pop_4_4.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 108.0,
+        "time_signature": "4/4",
+        "total_ticks": 9600,
+        "melody_track_index": 1,
+        "melody_confidence": 1.0
+      },
+      "profile": {
+        "name": "chamber_mixed",
+        "description": "Mixed chamber ensemble with winds layered on top of strings and piano.",
+        "expected_parts": 5,
+        "max_fix_rate_per_100_notes": 28.0
+      },
+      "execution": {
+        "track_count": 5,
+        "parts_count": 5,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello",
+          "Flute",
+          "Clarinet"
+        ],
+        "total_notes": 280,
+        "non_melody_note_count": 113,
+        "measure_count": 5,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 16,
+            "avg_velocity": 70.0,
+            "avg_pitch": 68.75
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 73,
+            "avg_velocity": 41.23,
+            "avg_pitch": 69.75
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 5,
+            "avg_velocity": 50.4,
+            "avg_pitch": 68.0
+          },
+          {
+            "track_name": "fl",
+            "note_on_count": 20,
+            "avg_velocity": 51.15,
+            "avg_pitch": 77.1
+          },
+          {
+            "track_name": "cl",
+            "note_on_count": 15,
+            "avg_velocity": 46.2,
+            "avg_pitch": 70.73
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 68,
+        "fix_rate_per_100_notes": 24.29,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.48,
+        "accompaniment_avg_velocity": 47.25
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_polyphonic_piano_4_4__piano_trio",
+      "sample": {
+        "name": "generated_polyphonic_piano_4_4",
+        "source_name": "generated_polyphonic_piano_4_4.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 92.0,
+        "time_signature": "4/4",
+        "total_ticks": 5760,
+        "melody_track_index": 1,
+        "melody_confidence": 0.9
+      },
+      "profile": {
+        "name": "piano_trio",
+        "description": "Melody-led piano trio with stable bass support.",
+        "expected_parts": 3,
+        "max_fix_rate_per_100_notes": 22.0
+      },
+      "execution": {
+        "track_count": 3,
+        "parts_count": 3,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello"
+        ],
+        "total_notes": 200,
+        "non_melody_note_count": 45,
+        "measure_count": 3,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 48,
+            "avg_velocity": 64.38,
+            "avg_pitch": 68.38
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 42,
+            "avg_velocity": 36.4,
+            "avg_pitch": 64.38
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 3,
+            "avg_velocity": 36.0,
+            "avg_pitch": 54.0
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 29,
+        "fix_rate_per_100_notes": 14.5,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.78,
+        "accompaniment_avg_velocity": 36.2
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_polyphonic_piano_4_4__string_quartet",
+      "sample": {
+        "name": "generated_polyphonic_piano_4_4",
+        "source_name": "generated_polyphonic_piano_4_4.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 92.0,
+        "time_signature": "4/4",
+        "total_ticks": 5760,
+        "melody_track_index": 1,
+        "melody_confidence": 0.9
+      },
+      "profile": {
+        "name": "string_quartet",
+        "description": "String quartet texture with explicit inner voices.",
+        "expected_parts": 4,
+        "max_fix_rate_per_100_notes": 18.0
+      },
+      "execution": {
+        "track_count": 4,
+        "parts_count": 4,
+        "instrument_list": [
+          "Violin I",
+          "Violin II",
+          "Viola",
+          "Cello"
+        ],
+        "total_notes": 202,
+        "non_melody_note_count": 44,
+        "measure_count": 3,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 48,
+            "avg_velocity": 64.38,
+            "avg_pitch": 68.38
+          },
+          {
+            "track_name": "vn2",
+            "note_on_count": 5,
+            "avg_velocity": 34.8,
+            "avg_pitch": 67.4
+          },
+          {
+            "track_name": "va",
+            "note_on_count": 36,
+            "avg_velocity": 38.28,
+            "avg_pitch": 76.67
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 3,
+            "avg_velocity": 36.0,
+            "avg_pitch": 57.33
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 15,
+        "fix_rate_per_100_notes": 7.43,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.77,
+        "accompaniment_avg_velocity": 36.36
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    },
+    {
+      "name": "generated_polyphonic_piano_4_4__chamber_mixed",
+      "sample": {
+        "name": "generated_polyphonic_piano_4_4",
+        "source_name": "generated_polyphonic_piano_4_4.generated",
+        "source_type": "synthetic",
+        "track_count": 2,
+        "ticks_per_beat": 480,
+        "tempo": 92.0,
+        "time_signature": "4/4",
+        "total_ticks": 5760,
+        "melody_track_index": 1,
+        "melody_confidence": 0.9
+      },
+      "profile": {
+        "name": "chamber_mixed",
+        "description": "Mixed chamber ensemble with winds layered on top of strings and piano.",
+        "expected_parts": 5,
+        "max_fix_rate_per_100_notes": 28.0
+      },
+      "execution": {
+        "track_count": 5,
+        "parts_count": 5,
+        "instrument_list": [
+          "Violin I",
+          "Piano",
+          "Cello",
+          "Flute",
+          "Clarinet"
+        ],
+        "total_notes": 222,
+        "non_melody_note_count": 52,
+        "measure_count": 3,
+        "output_tracks": [
+          {
+            "track_name": "melody_vn1",
+            "note_on_count": 48,
+            "avg_velocity": 64.38,
+            "avg_pitch": 68.38
+          },
+          {
+            "track_name": "piano",
+            "note_on_count": 38,
+            "avg_velocity": 34.68,
+            "avg_pitch": 63.42
+          },
+          {
+            "track_name": "vc",
+            "note_on_count": 3,
+            "avg_velocity": 36.0,
+            "avg_pitch": 58.0
+          },
+          {
+            "track_name": "fl",
+            "note_on_count": 2,
+            "avg_velocity": 32.0,
+            "avg_pitch": 64.0
+          },
+          {
+            "track_name": "cl",
+            "note_on_count": 9,
+            "avg_velocity": 33.0,
+            "avg_pitch": 66.11
+          }
+        ],
+        "auto_tracks": []
+      },
+      "validation": {
+        "melody_identical": {
+          "passed": true,
+          "message": "Melody identical"
+        },
+        "total_ticks_identical": {
+          "passed": true,
+          "message": "Total ticks within tolerance"
+        },
+        "instrumentation_ok": {
+          "passed": true,
+          "message": "Instrumentation OK"
+        },
+        "midi_valid": {
+          "passed": true,
+          "message": "MIDI valid"
+        },
+        "harmony_valid": {
+          "passed": true,
+          "message": "Harmony check passed"
+        },
+        "instrument_range_valid": {
+          "passed": true,
+          "message": "All notes in range"
+        },
+        "all_passed": true,
+        "errors": []
+      },
+      "quality": {
+        "fixes_count": 41,
+        "fix_rate_per_100_notes": 18.47,
+        "missing_report_fields": [],
+        "inactive_parts": [],
+        "underactive_parts": [],
+        "melody_prominence_ratio": 1.9,
+        "accompaniment_avg_velocity": 33.92
+      },
+      "status": "pass",
+      "score": 100,
+      "issues": [],
+      "issue_counts": {}
+    }
+  ]
+}

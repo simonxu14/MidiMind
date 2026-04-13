@@ -74,15 +74,25 @@ class DenseAccompanimentTemplate(BaseTemplate):
         register = p["register"]
         voicing = p.get("voicing", "spread")
         include_octaves = p.get("include_octaves", True)
+        bass_depth = p.get("bass_octave_depth", 2)
+        alberti_octave_repeat = p.get("alberti_octave_repeat", True)
 
         # 强制使用 modern 风格以获得最高密度
         # ballad 风格密度较低，modern 才是高密度伴奏
         style = "modern"
         tempo = p.get("tempo", getattr(context, 'tempo', 120))
+        time_signature_num = getattr(context, "time_signature_num", 4)
+        time_signature_den = getattr(context, "time_signature_den", 4)
+        is_compound_meter = time_signature_den == 8 and time_signature_num in (6, 9, 12)
+        is_waltz_meter = (time_signature_num, time_signature_den) == (3, 4)
+        is_slow_tempo = tempo < 90
 
-        # 从 params 获取高级参数
-        bass_depth = p.get("bass_octave_depth", 2)
-        alberti_octave_repeat = p.get("alberti_octave_repeat", True)
+        if is_compound_meter or is_slow_tempo or is_waltz_meter:
+            density = min(density, 0.65)
+            voicing = "open"
+            include_octaves = False
+            bass_depth = min(bass_depth, 1)
+            alberti_octave_repeat = False
 
         measure_len = context.measure_len
         ticks_per_beat = context.ticks_per_beat
@@ -95,10 +105,7 @@ class DenseAccompanimentTemplate(BaseTemplate):
 
         pitch_min, pitch_max = self.REGISTER_RANGES.get(register, self.REGISTER_RANGES["middle"])
 
-        # 预处理：获取所有小节的根音列表
         sorted_measures = sorted(context.chord_per_measure.items())
-
-        prev_root = getattr(context, 'prev_chord_root', None)
 
         for measure_idx, chord_info in sorted_measures:
             root = chord_info.root
@@ -119,10 +126,27 @@ class DenseAccompanimentTemplate(BaseTemplate):
             elif style == "dance":
                 patterns = self._dance_patterns(measure_start, quarter_note, eighth_note, chord_tones, pitch_min, pitch_max, velocity_base, velocity_range, channel, density)
             else:  # general, upbeat, modern
-                patterns = self._modern_patterns(measure_start, quarter_note, eighth_note, sixteenth_note, chord_tones, pitch_min, pitch_max, velocity_base, velocity_range, channel, density, voicing, include_octaves, bass_depth, alberti_octave_repeat)
+                patterns = self._modern_patterns(
+                    measure_start,
+                    measure_len,
+                    quarter_note,
+                    eighth_note,
+                    sixteenth_note,
+                    chord_tones,
+                    pitch_min,
+                    pitch_max,
+                    velocity_base,
+                    velocity_range,
+                    channel,
+                    density,
+                    voicing,
+                    include_octaves,
+                    bass_depth,
+                    alberti_octave_repeat,
+                    is_compound_meter,
+                )
 
             notes.extend(patterns)
-            prev_root = root
 
         return notes
 
@@ -221,6 +245,7 @@ class DenseAccompanimentTemplate(BaseTemplate):
     def _modern_patterns(
         self,
         measure_start: int,
+        measure_len: int,
         quarter_note: int,
         eighth_note: int,
         sixteenth_note: int,
@@ -234,7 +259,8 @@ class DenseAccompanimentTemplate(BaseTemplate):
         voicing: str,
         include_octaves: bool,
         bass_depth: int,
-        alberti_octave_repeat: bool
+        alberti_octave_repeat: bool,
+        is_compound_meter: bool,
     ) -> List[NoteEvent]:
         """
         现代风格：最大化密度的钢琴伴奏
@@ -252,7 +278,8 @@ class DenseAccompanimentTemplate(BaseTemplate):
         alberti_order = [0, 2, 1, 2]  # root, fifth, third, fifth
 
         # ===== 1. 主阿尔贝蒂低音（16分音符）- 核心节奏 =====
-        for i in range(16):
+        step_count = max(1, measure_len // sixteenth_note)
+        for i in range(step_count):
             if random.random() > density:
                 continue
 
@@ -280,6 +307,7 @@ class DenseAccompanimentTemplate(BaseTemplate):
                 notes.append((tick, tick + duration, pitch, vel, channel))
 
         # ===== 2. 低音扩展（使用 bass_depth 参数）- 增强低音密度 =====
+        accent_positions = [0, measure_len // 2] if is_compound_meter else [0, quarter_note * 2]
         if include_octaves:
             for depth in range(bass_depth):
                 bass_pitch = chord_tones[0] - 12 * (depth + 1)
@@ -288,12 +316,11 @@ class DenseAccompanimentTemplate(BaseTemplate):
                 while bass_pitch < pitch_min:
                     bass_pitch += 12
 
-                # 每拍（1和3拍）加低音，保持合理密度
-                for beat in [0, 2]:  # 只在第1和第3拍
-                    tick = measure_start + beat * quarter_note
+                for offset in accent_positions:
+                    tick = measure_start + offset
                     vel = velocity_base - 3 - (depth * 3)
                     vel = max(35, min(70, vel))
-                    duration = int(quarter_note * 0.9)
+                    duration = int(min(max(eighth_note, quarter_note * 0.9), measure_len - offset))
                     notes.append((tick, tick + duration, bass_pitch, vel, channel))
 
         # ===== 3. 和弦音高八度和弦（使用 alberti_octave_repeat） =====
@@ -308,7 +335,7 @@ class DenseAccompanimentTemplate(BaseTemplate):
 
                 tick = measure_start
                 vel = velocity_base - 5
-                duration = int(quarter_note * 2)
+                duration = int(min(quarter_note * 2, measure_len))
                 notes.append((tick, tick + duration, p, vel, channel))
 
         # ===== 4. 高音点缀（可选）- 减少密度 =====

@@ -13,12 +13,18 @@ from __future__ import annotations
 
 import json
 import uuid
-import os
+import logging
+import threading
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from dataclasses import dataclass, field, asdict
 from enum import Enum
+
+from .storage import atomic_write_json, get_storage_dir
+
+
+logger = logging.getLogger(__name__)
 
 
 class MessageRole(Enum):
@@ -66,6 +72,7 @@ class ArrangementVersion:
     """编曲版本记录"""
     version_id: str
     plan: Dict[str, Any]
+    generation_intent: Optional[str] = None
     # 执行结果（新增）
     stats: Optional[Dict[str, Any]] = None  # 执行统计
     validator_result: Optional[Dict[str, Any]] = None  # 验证结果
@@ -94,11 +101,21 @@ class ConversationManager:
     """
 
     def __init__(self, storage_dir: Optional[Path] = None):
-        self.storage_dir = storage_dir or Path("/tmp/midimind_conversations")
+        self.storage_dir = storage_dir or get_storage_dir(
+            "conversations",
+            "MIDIMIND_CONVERSATIONS_DIR",
+        )
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
         # 内存中的会话缓存
         self._conversations: Dict[str, Dict[str, Any]] = {}
+        self._locks: Dict[str, threading.RLock] = {}
+        self._locks_guard = threading.Lock()
+
+    def _get_lock(self, conversation_id: str) -> threading.RLock:
+        """Return a stable in-process lock for a conversation."""
+        with self._locks_guard:
+            return self._locks.setdefault(conversation_id, threading.RLock())
 
     def create_conversation(self, user_intent: str, metadata: Optional[Dict] = None) -> str:
         """创建新会话"""
@@ -172,7 +189,8 @@ class ConversationManager:
         self,
         conversation_id: str,
         plan: Dict[str, Any],
-        version_id: Optional[str] = None
+        version_id: Optional[str] = None,
+        generation_intent: Optional[str] = None,
     ) -> str:
         """添加编曲版本"""
         conversation = self.get_conversation(conversation_id)
@@ -184,6 +202,7 @@ class ConversationManager:
         version = ArrangementVersion(
             version_id=version_id,
             plan=plan,
+            generation_intent=generation_intent,
             status="generated"
         )
 
@@ -277,6 +296,39 @@ class ConversationManager:
 
         self._save_to_disk(conversation_id, conversation)
 
+    def update_metadata(self, conversation_id: str, metadata_updates: Dict[str, Any]) -> None:
+        """Merge metadata updates into the conversation and persist them."""
+        conversation = self.get_conversation(conversation_id)
+        if not conversation:
+            raise ValueError(f"Conversation {conversation_id} not found")
+
+        conversation.setdefault("metadata", {}).update(metadata_updates)
+        conversation["updated_at"] = datetime.now().isoformat()
+
+        self._save_to_disk(conversation_id, conversation)
+
+    def update_latest_plan(self, conversation_id: str, plan: Dict[str, Any]) -> None:
+        """Update the latest stored plan for compatibility-oriented revise flows."""
+        conversation = self.get_conversation(conversation_id)
+        if not conversation:
+            raise ValueError(f"Conversation {conversation_id} not found")
+
+        versions = conversation.get("arrangement_versions", [])
+        if versions:
+            versions[-1]["plan"] = plan
+        else:
+            conversation["plan"] = plan
+        conversation["updated_at"] = datetime.now().isoformat()
+
+        self._save_to_disk(conversation_id, conversation)
+
+    def save_conversation(self, conversation_id: str) -> None:
+        """Persist the current in-memory conversation state."""
+        conversation = self.get_conversation(conversation_id)
+        if not conversation:
+            raise ValueError(f"Conversation {conversation_id} not found")
+        self._save_to_disk(conversation_id, conversation)
+
     def get_conversation(self, conversation_id: str) -> Optional[Dict[str, Any]]:
         """获取会话"""
         if conversation_id in self._conversations:
@@ -285,10 +337,11 @@ class ConversationManager:
         # 从磁盘加载
         file_path = self.storage_dir / f"{conversation_id}.json"
         if file_path.exists():
-            with open(file_path, "r", encoding="utf-8") as f:
-                conversation = json.load(f)
-                self._conversations[conversation_id] = conversation
-                return conversation
+            with self._get_lock(conversation_id):
+                with open(file_path, "r", encoding="utf-8") as f:
+                    conversation = json.load(f)
+                    self._conversations[conversation_id] = conversation
+                    return conversation
 
         return None
 
@@ -308,7 +361,7 @@ class ConversationManager:
 
     def get_processing_steps(self, conversation_id: str) -> List[Dict[str, Any]]:
         """获取处理步骤"""
-        conversation = get_conversation(conversation_id)
+        conversation = self.get_conversation(conversation_id)
         if not conversation:
             return []
         return conversation.get("processing_steps", [])
@@ -324,16 +377,25 @@ class ConversationManager:
         """列出所有会话"""
         conversations = []
         for file_path in self.storage_dir.glob("*.json"):
-            with open(file_path, "r", encoding="utf-8") as f:
-                conv = json.load(f)
-                conversations.append({
-                    "id": conv["id"],
-                    "created_at": conv["created_at"],
-                    "updated_at": conv["updated_at"],
-                    "initial_intent": conv["initial_intent"],
-                    "status": conv["status"],
-                    "versions_count": len(conv.get("arrangement_versions", []))
-                })
+            conversation_id = file_path.stem
+            try:
+                with self._get_lock(conversation_id):
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        conv = json.load(f)
+                        conversations.append({
+                            "id": conv["id"],
+                            "created_at": conv["created_at"],
+                            "updated_at": conv["updated_at"],
+                            "initial_intent": conv["initial_intent"],
+                            "status": conv["status"],
+                            "versions_count": len(conv.get("arrangement_versions", []))
+                        })
+            except Exception as error:
+                logger.warning(
+                    "Failed to read conversation %s: %s",
+                    file_path,
+                    error,
+                )
         return sorted(conversations, key=lambda x: x["updated_at"], reverse=True)
 
     def export_conversation(self, conversation_id: str) -> Dict[str, Any]:
@@ -347,8 +409,9 @@ class ConversationManager:
     def _save_to_disk(self, conversation_id: str, conversation: Dict[str, Any]) -> None:
         """保存会话到磁盘"""
         file_path = self.storage_dir / f"{conversation_id}.json"
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(conversation, f, ensure_ascii=False, indent=2)
+        with self._get_lock(conversation_id):
+            self._conversations[conversation_id] = conversation
+            atomic_write_json(file_path, conversation)
 
 
 # 全局实例

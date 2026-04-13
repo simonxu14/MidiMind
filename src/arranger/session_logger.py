@@ -14,11 +14,17 @@ Session Logger - 会话完整日志记录
 from __future__ import annotations
 
 import json
-import os
+import logging
+import threading
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from dataclasses import dataclass, field, asdict
+
+from .storage import atomic_write_json, get_storage_dir
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -61,12 +67,22 @@ class SessionLogger:
     会话日志记录器
 
     为每次编曲会话创建完整的、结构化的日志文件。
-    存储位置：/tmp/midimind_sessions/<conversation_id>/<version_id>.json
+    存储位置：由 MIDIMIND_SESSIONS_DIR 或 ~/.midimind/sessions 控制
     """
 
     def __init__(self, base_dir: Optional[Path] = None):
-        self.base_dir = base_dir or Path("/tmp/midimind_sessions")
+        self.base_dir = base_dir or get_storage_dir(
+            "sessions",
+            "MIDIMIND_SESSIONS_DIR",
+        )
         self.base_dir.mkdir(parents=True, exist_ok=True)
+        self._locks: Dict[str, threading.RLock] = {}
+        self._locks_guard = threading.Lock()
+
+    def _get_lock(self, conversation_id: str) -> threading.RLock:
+        """Return a stable in-process lock for a conversation session directory."""
+        with self._locks_guard:
+            return self._locks.setdefault(conversation_id, threading.RLock())
 
     def _get_session_dir(self, conversation_id: str) -> Path:
         """获取会话目录"""
@@ -96,8 +112,8 @@ class SessionLogger:
         session_dir = self._get_session_dir(log.conversation_id)
         filepath = session_dir / f"{log.version_id}.json"
 
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(asdict(log), f, ensure_ascii=False, indent=2)
+        with self._get_lock(log.conversation_id):
+            atomic_write_json(filepath, asdict(log))
 
         return filepath
 
@@ -107,22 +123,28 @@ class SessionLogger:
         if not filepath.exists():
             return None
 
-        with open(filepath, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return SessionLog(**data)
+        with self._get_lock(conversation_id):
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return SessionLog(**data)
 
     def get_session_logs(self, conversation_id: str) -> List[SessionLog]:
         """获取会话的所有版本日志"""
         session_dir = self._get_session_dir(conversation_id)
         logs = []
 
-        for filepath in session_dir.glob("*.json"):
-            try:
-                with open(filepath, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    logs.append(SessionLog(**data))
-            except Exception:
-                continue
+        with self._get_lock(conversation_id):
+            for filepath in session_dir.glob("*.json"):
+                try:
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        logs.append(SessionLog(**data))
+                except Exception as error:
+                    logger.warning(
+                        "Failed to read session log %s: %s",
+                        filepath,
+                        error,
+                    )
 
         return sorted(logs, key=lambda x: x.created_at)
 
@@ -138,16 +160,24 @@ class SessionLogger:
                 if versions:
                     # 获取最新的版本信息
                     latest = max(versions, key=lambda p: p.stat().st_mtime)
-                    with open(latest, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                        sessions.append({
-                            "conversation_id": conversation_id,
-                            "version_id": data.get("version_id", ""),
-                            "created_at": data.get("created_at", ""),
-                            "user_intent": data.get("user_intent", "")[:100],
-                            "status": data.get("status", ""),
-                            "versions_count": len(versions)
-                        })
+                    try:
+                        with self._get_lock(conversation_id):
+                            with open(latest, "r", encoding="utf-8") as f:
+                                data = json.load(f)
+                                sessions.append({
+                                    "conversation_id": conversation_id,
+                                    "version_id": data.get("version_id", ""),
+                                    "created_at": data.get("created_at", ""),
+                                    "user_intent": data.get("user_intent", "")[:100],
+                                    "status": data.get("status", ""),
+                                    "versions_count": len(versions)
+                                })
+                    except Exception as error:
+                        logger.warning(
+                            "Failed to summarize session %s: %s",
+                            latest,
+                            error,
+                        )
 
         return sorted(sessions, key=lambda x: x.get("created_at", ""), reverse=True)
 

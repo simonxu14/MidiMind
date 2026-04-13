@@ -1,0 +1,345 @@
+{
+  "metadata": {
+    "suite": "revision",
+    "mode": "heuristic_fallback"
+  },
+  "totals": {
+    "cases": 12,
+    "intent_passed": 12,
+    "intent_failed": 0,
+    "workflow_cases": 5,
+    "workflow_passed": 5,
+    "workflow_failed": 0
+  },
+  "cases": [
+    {
+      "name": "add_horn",
+      "message": "加一个圆号",
+      "intent": {
+        "name": "add_horn",
+        "message": "加一个圆号",
+        "plan_variant": "default",
+        "expected_revision": true,
+        "expected_type": "add",
+        "expected_target": null,
+        "detected_revision": true,
+        "detected_type": "add",
+        "detected_target": null,
+        "passed": true
+      },
+      "workflow": {
+        "name": "add_horn",
+        "message": "加一个圆号",
+        "workflow_stub": "add_horn",
+        "success": true,
+        "message_detail": "成功新增 1 个声部",
+        "modified_parts": [
+          "hn"
+        ],
+        "part_ids": [
+          "vn1",
+          "piano",
+          "vc",
+          "hn"
+        ],
+        "expected_part_ids": [
+          "vn1",
+          "piano",
+          "vc",
+          "hn"
+        ],
+        "expected_modified_parts": [
+          "hn"
+        ],
+        "lint_passed": true,
+        "lint_warning_count": 0,
+        "passed": true
+      }
+    },
+    {
+      "name": "remove_cello",
+      "message": "去掉大提琴",
+      "intent": {
+        "name": "remove_cello",
+        "message": "去掉大提琴",
+        "plan_variant": "default",
+        "expected_revision": true,
+        "expected_type": "remove",
+        "expected_target": "vc",
+        "detected_revision": true,
+        "detected_type": "remove",
+        "detected_target": "vc",
+        "passed": true
+      },
+      "workflow": {
+        "name": "remove_cello",
+        "message": "去掉大提琴",
+        "workflow_stub": null,
+        "success": true,
+        "message_detail": "成功删除声部: vc",
+        "modified_parts": [
+          "vc"
+        ],
+        "part_ids": [
+          "vn1",
+          "piano"
+        ],
+        "expected_part_ids": [
+          "vn1",
+          "piano"
+        ],
+        "expected_modified_parts": [
+          "vc"
+        ],
+        "lint_passed": true,
+        "lint_warning_count": 0,
+        "passed": true
+      }
+    },
+    {
+      "name": "modify_piano_density",
+      "message": "把钢琴写密一点",
+      "intent": {
+        "name": "modify_piano_density",
+        "message": "把钢琴写密一点",
+        "plan_variant": "default",
+        "expected_revision": true,
+        "expected_type": "modify",
+        "expected_target": "piano",
+        "detected_revision": true,
+        "detected_type": "modify",
+        "detected_target": "piano",
+        "passed": true
+      },
+      "workflow": {
+        "name": "modify_piano_density",
+        "message": "把钢琴写密一点",
+        "workflow_stub": "modify_piano_density",
+        "success": true,
+        "message_detail": "成功修改声部: piano",
+        "modified_parts": [
+          "piano"
+        ],
+        "part_ids": [
+          "vn1",
+          "piano",
+          "vc"
+        ],
+        "expected_part_ids": [
+          "vn1",
+          "piano",
+          "vc"
+        ],
+        "expected_modified_parts": [
+          "piano"
+        ],
+        "lint_passed": true,
+        "lint_warning_count": 0,
+        "passed": true
+      }
+    },
+    {
+      "name": "modify_second_violin",
+      "message": "把第二小提琴写密一点",
+      "intent": {
+        "name": "modify_second_violin",
+        "message": "把第二小提琴写密一点",
+        "plan_variant": "strings_duo",
+        "expected_revision": true,
+        "expected_type": "modify",
+        "expected_target": "vn2",
+        "detected_revision": true,
+        "detected_type": "modify",
+        "detected_target": "vn2",
+        "passed": true
+      },
+      "workflow": {
+        "name": "modify_second_violin",
+        "message": "把第二小提琴写密一点",
+        "workflow_stub": "modify_second_violin",
+        "success": true,
+        "message_detail": "成功修改声部: vn2",
+        "modified_parts": [
+          "vn2"
+        ],
+        "part_ids": [
+          "vn1",
+          "vn2",
+          "vc"
+        ],
+        "expected_part_ids": [
+          "vn1",
+          "vn2",
+          "vc"
+        ],
+        "expected_modified_parts": [
+          "vn2"
+        ],
+        "lint_passed": true,
+        "lint_warning_count": 0,
+        "passed": true
+      }
+    },
+    {
+      "name": "ambiguous_violin_without_ordinal",
+      "message": "把小提琴写密一点",
+      "intent": {
+        "name": "ambiguous_violin_without_ordinal",
+        "message": "把小提琴写密一点",
+        "plan_variant": "strings_duo",
+        "expected_revision": false,
+        "expected_type": null,
+        "expected_target": null,
+        "detected_revision": false,
+        "detected_type": null,
+        "detected_target": null,
+        "passed": true
+      },
+      "workflow": null
+    },
+    {
+      "name": "mixed_remove_then_add",
+      "message": "把钢琴删掉换成圆号",
+      "intent": {
+        "name": "mixed_remove_then_add",
+        "message": "把钢琴删掉换成圆号",
+        "plan_variant": "default",
+        "expected_revision": false,
+        "expected_type": null,
+        "expected_target": null,
+        "detected_revision": false,
+        "detected_type": null,
+        "detected_target": null,
+        "passed": true
+      },
+      "workflow": null
+    },
+    {
+      "name": "ambiguous_multi_target_remove",
+      "message": "把钢琴和大提琴都删掉",
+      "intent": {
+        "name": "ambiguous_multi_target_remove",
+        "message": "把钢琴和大提琴都删掉",
+        "plan_variant": "default",
+        "expected_revision": false,
+        "expected_type": null,
+        "expected_target": null,
+        "detected_revision": false,
+        "detected_type": null,
+        "detected_target": null,
+        "passed": true
+      },
+      "workflow": null
+    },
+    {
+      "name": "context_dependent_pronoun",
+      "message": "继续让它更亮一点",
+      "intent": {
+        "name": "context_dependent_pronoun",
+        "message": "继续让它更亮一点",
+        "plan_variant": "default",
+        "expected_revision": false,
+        "expected_type": null,
+        "expected_target": null,
+        "detected_revision": false,
+        "detected_type": null,
+        "detected_target": null,
+        "passed": true
+      },
+      "workflow": null
+    },
+    {
+      "name": "group_level_strings",
+      "message": "把弦乐更亮一点",
+      "intent": {
+        "name": "group_level_strings",
+        "message": "把弦乐更亮一点",
+        "plan_variant": "strings_duo",
+        "expected_revision": false,
+        "expected_type": null,
+        "expected_target": null,
+        "detected_revision": false,
+        "detected_type": null,
+        "detected_target": null,
+        "passed": true
+      },
+      "workflow": null
+    },
+    {
+      "name": "modify_piano_with_constraint",
+      "message": "钢琴再复杂一点，但别抢旋律",
+      "intent": {
+        "name": "modify_piano_with_constraint",
+        "message": "钢琴再复杂一点，但别抢旋律",
+        "plan_variant": "default",
+        "expected_revision": true,
+        "expected_type": "modify",
+        "expected_target": "piano",
+        "detected_revision": true,
+        "detected_type": "modify",
+        "detected_target": "piano",
+        "passed": true
+      },
+      "workflow": {
+        "name": "modify_piano_with_constraint",
+        "message": "钢琴再复杂一点，但别抢旋律",
+        "workflow_stub": "modify_piano_density",
+        "success": true,
+        "message_detail": "成功修改声部: piano",
+        "modified_parts": [
+          "piano"
+        ],
+        "part_ids": [
+          "vn1",
+          "piano",
+          "vc"
+        ],
+        "expected_part_ids": [
+          "vn1",
+          "piano",
+          "vc"
+        ],
+        "expected_modified_parts": [
+          "piano"
+        ],
+        "lint_passed": true,
+        "lint_warning_count": 0,
+        "passed": true
+      }
+    },
+    {
+      "name": "regenerate_new_style",
+      "message": "换一个古典交响版本",
+      "intent": {
+        "name": "regenerate_new_style",
+        "message": "换一个古典交响版本",
+        "plan_variant": "default",
+        "expected_revision": false,
+        "expected_type": null,
+        "expected_target": null,
+        "detected_revision": false,
+        "detected_type": null,
+        "detected_target": null,
+        "passed": true
+      },
+      "workflow": null
+    },
+    {
+      "name": "regenerate_global_mood",
+      "message": "整体更柔和一些",
+      "intent": {
+        "name": "regenerate_global_mood",
+        "message": "整体更柔和一些",
+        "plan_variant": "default",
+        "expected_revision": false,
+        "expected_type": null,
+        "expected_target": null,
+        "detected_revision": false,
+        "detected_type": null,
+        "detected_target": null,
+        "passed": true
+      },
+      "workflow": null
+    }
+  ]
+}

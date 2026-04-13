@@ -4,7 +4,21 @@
 
 import pytest
 from arranger.auto_fixer import AutoFixer
+from arranger.midi_io import MidiWriter
 from arranger.harmony_validator import HarmonyValidator
+from arranger.plan_schema import (
+    Constraints,
+    EnsembleConfig,
+    HarmonyContext,
+    LockMelodyConfig,
+    MidiOutputConfig,
+    MidiSpec,
+    OutputConfig,
+    PartSpec,
+    TransformSpec,
+    UnifiedPlan,
+)
+from arranger.validator import Validator
 
 
 class TestAutoFixer:
@@ -109,3 +123,114 @@ class TestHarmonyValidator:
 
         # 空应该通过
         assert result.passed is True
+
+    def test_validate_equal_pitch_unison_is_not_voice_crossing(self):
+        """同音重叠不应被当成 voice crossing"""
+        validator = HarmonyValidator()
+        notes = [
+            (0, 100, 60, 64, 0),
+            (0, 100, 60, 64, 1),
+            (100, 200, 62, 64, 0),
+            (100, 200, 62, 64, 1),
+        ]
+
+        result = validator.validate(notes)
+
+        assert result.passed is True
+
+
+class TestArrangementValidator:
+    def test_check_instrumentation_ignores_auto_generated_tracks(self):
+        plan = UnifiedPlan(
+            schema_version="1.0",
+            transform=TransformSpec(type="orchestration"),
+            ensemble=EnsembleConfig(
+                name="test",
+                size="small",
+                target_size=2,
+                parts=[
+                    PartSpec(id="vn1", name="Violin I", role="melody", instrument="violin", midi=MidiSpec(channel=0, program=40)),
+                    PartSpec(id="piano", name="Piano", role="accompaniment", instrument="piano", midi=MidiSpec(channel=1, program=0)),
+                ],
+            ),
+            harmony_context=HarmonyContext(),
+            constraints=Constraints(),
+            outputs=OutputConfig(midi=MidiOutputConfig(enabled=True, filename="test.mid")),
+        )
+        validator = Validator(plan)
+        output_tracks = [
+            [
+                ("track_name", {"name": "melody_vn1"}),
+                ("program_change", {"program": 40, "channel": 0}),
+            ],
+            [
+                ("track_name", {"name": "piano"}),
+                ("program_change", {"program": 0, "channel": 1}),
+            ],
+            [
+                ("track_name", {"name": "auto_triangle"}),
+                ("program_change", {"program": 81, "channel": 12}),
+            ],
+        ]
+
+        result = validator._check_instrumentation(output_tracks)
+
+        assert result.passed is True
+
+    def test_melody_identical_accepts_polyphonic_order_variation(self):
+        plan = UnifiedPlan(
+            schema_version="1.0",
+            transform=TransformSpec(type="orchestration"),
+            ensemble=EnsembleConfig(
+                name="polyphonic_melody",
+                size="small",
+                target_size=1,
+                parts=[
+                    PartSpec(
+                        id="vn1",
+                        name="Violin I",
+                        role="melody",
+                        instrument="violin",
+                        midi=MidiSpec(channel=0, program=40),
+                    ),
+                ],
+            ),
+            harmony_context=HarmonyContext(),
+            constraints=Constraints(
+                lock_melody_events=LockMelodyConfig(
+                    enabled=True,
+                    source_track_ref="1",
+                    source_track_selection_mode="fixed",
+                    user_confirm_required=False,
+                ),
+            ),
+            outputs=OutputConfig(midi=MidiOutputConfig(enabled=True, filename="test.mid")),
+        )
+        validator = Validator(plan)
+
+        input_midi = MidiWriter.write_midi(
+            tracks=[[
+                ("note_on", {"channel": 0, "note": 70, "velocity": 64, "time": 0}),
+                ("note_on", {"channel": 0, "note": 65, "velocity": 57, "time": 10}),
+                ("note_off", {"channel": 0, "note": 65, "velocity": 0, "time": 90}),
+                ("note_off", {"channel": 0, "note": 70, "velocity": 0, "time": 0}),
+            ]],
+            ticks_per_beat=480,
+            tempo=120,
+            time_signature=(4, 4),
+        )
+        output_tracks = [
+            MidiWriter.create_track_from_note_events(
+                track_name="melody_vn1",
+                note_events=[
+                    (0, 100, 70, 64, 0),
+                    (10, 100, 65, 57, 0),
+                ],
+                program=40,
+                channel=0,
+            )
+        ]
+
+        result = validator.validate(input_midi, output_tracks)
+
+        assert result.melody_identical.passed is True

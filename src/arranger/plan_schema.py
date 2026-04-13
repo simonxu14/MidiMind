@@ -526,6 +526,10 @@ class PercussionPolicy(BaseModel):
     定音鼓和三角铁的触发规则
     """
     phrase_block_measures: int = Field(default=8, description="乐句块小节数")
+    auto_add_when_absent: bool = Field(
+        default=False,
+        description="是否在未显式声明打击乐声部时自动补充打击乐",
+    )
     timpani_enabled: bool = Field(default=True, description="是否启用定音鼓")
     timp_vel_base: int = Field(default=35, description="定音鼓基础力度")
     timp_dur_ticks: int = Field(default=240, description="定音鼓持续时间")
@@ -673,6 +677,8 @@ class ArrangeResponse(BaseModel):
 
     output_url: Optional[str] = Field(default=None, description="输出文件 URL（MVP 为本地路径）")
     output_path: Optional[str] = Field(default=None, description="输出文件本地路径")
+    status: str = Field(default="validated", description="编曲结果状态：validated 或 validation_failed")
+    validation_passed: bool = Field(default=True, description="校验是否全部通过")
     checks: Dict[str, CheckResult] = Field(description="各项检查结果")
     stats: ArrangeStats = Field(description="统计信息")
 
@@ -691,3 +697,46 @@ class ArrangeStats(BaseModel):
     track_count: int
     parts_count: int = Field(description="声部数量（不含 conductor track）")
     instrument_list: List[str]
+
+
+# ============ Revision 意图检测 ============
+
+class RevisionIntent(BaseModel):
+    """
+    Revision 意图分析结果
+
+    用于判别用户是全新创作还是基于历史的修改
+    """
+    is_revision: bool = Field(
+        description="是否为修改请求。如果用户描述涉及添加/删除/修改现有声部，则为 True"
+    )
+    revision_type: Optional[Literal["add", "remove", "modify"]] = Field(
+        default=None,
+        description="修改类型：add（新增声部）、remove（删除声部）、modify（修改现有声部）"
+    )
+    target_part_id: Optional[str] = Field(
+        default=None,
+        description="目标声部 ID（如要修改钢琴，则为 'piano'）"
+    )
+    instruction: str = Field(
+        description="修改的自然语言描述，用于传递给 LLM 生成具体修改方案"
+    )
+    new_parts: List["PartSpec"] = Field(
+        default_factory=list,
+        description="如果要新增声部，这里描述新增的声部规格"
+    )
+    modify_params: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="如果要修改现有声部，这里描述具体修改参数字典"
+    )
+
+
+class RevisionResult(BaseModel):
+    """
+    Revision 执行结果
+    """
+    success: bool
+    message: str = ""
+    revised_plan: Optional["UnifiedPlan"] = None
+    revision_type: Optional[Literal["add", "remove", "modify"]] = None
+    modified_parts: List[str] = Field(default_factory=list)

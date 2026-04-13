@@ -1346,10 +1346,18 @@
 
                 // Update assistant message with MIDI player
                 if (assistantMsg && arrangementResult.midi_data) {
-                    updateMessageWithMidiPlayer(assistantMsg, data.version_id);
+                    updateMessageWithMidiPlayer(assistantMsg, data.version_id, arrangementResult);
                 }
 
-                log('编曲完成!', 'success');
+                if (arrangementResult.validation_passed === false) {
+                    const firstError = arrangementResult.checks?.errors?.[0];
+                    log(
+                        '编曲已生成，但校验未完全通过' + (firstError ? '：' + firstError : ''),
+                        'warning'
+                    );
+                } else {
+                    log('编曲完成!', 'success');
+                }
 
             } catch (err) {
                 log('编曲执行错误: ' + err.message, 'error');
@@ -1487,14 +1495,23 @@
         }
 
         // ========== Update Message with MIDI Player ==========
-        function updateMessageWithMidiPlayer(messageEl, versionId) {
+        function updateMessageWithMidiPlayer(messageEl, versionId, result) {
             const playerPlaceholder = messageEl.querySelector('#midiPlayerPlaceholder');
             if (playerPlaceholder) {
+                const fileName = result?.output_path?.split('/').pop() || 'arranged.mid';
+                const validationWarning = result?.validation_passed === false
+                    ? `
+                        <div style="margin-top:10px;color:var(--warning);font-size:0.82rem;line-height:1.5;">
+                            校验未完全通过${result?.checks?.errors?.[0] ? `：${result.checks.errors[0]}` : ''}
+                        </div>
+                    `
+                    : '';
                 playerPlaceholder.innerHTML = `
                     <button class="play-btn" style="width:36px;height:36px;font-size:0.9rem;" onclick="toggleOutputPlayback()">▶</button>
                     <div class="ai-midi-info">
-                        <div class="ai-midi-name">arranged.mid</div>
+                        <div class="ai-midi-name">${fileName}</div>
                         <div class="ai-midi-version">版本 ${versionId}</div>
+                        ${validationWarning}
                     </div>
                     <button class="export-btn" style="padding:8px 12px;" onclick="downloadLatest()">
                         <span>⬇️</span>

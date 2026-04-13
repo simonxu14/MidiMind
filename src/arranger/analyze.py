@@ -208,6 +208,8 @@ class MidiAnalysisService:
         analyzer = MidiAnalyzer(midi)
         analysis = analyzer.analyze()
 
+        note_tracks = [track for track in tracks if track.notes]
+
         # 评分旋律候选
         melody_candidates = []
         for track in tracks:
@@ -219,6 +221,21 @@ class MidiAnalysisService:
                     score=score,
                     reason=reason
                 ))
+
+        # 如果文件里只有一个真正有音符的轨道，把它视为默认旋律来源，
+        # 即使它是钢琴独奏/钢琴谱式的复调轨，也不应继续保持极低置信度。
+        if len(note_tracks) == 1:
+            only_track = note_tracks[0]
+            for candidate in melody_candidates:
+                if candidate.track_index == only_track.index:
+                    candidate.score = max(candidate.score, 0.35)
+                    if "Only note-bearing track in file" not in candidate.reason:
+                        candidate.reason = (
+                            f"{candidate.reason}; Only note-bearing track in file"
+                            if candidate.reason
+                            else "Only note-bearing track in file"
+                        )
+                    break
 
         # 按分数排序
         melody_candidates.sort(key=lambda x: x.score, reverse=True)

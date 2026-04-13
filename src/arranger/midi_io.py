@@ -459,7 +459,9 @@ class MidiWriter:
             events.append((start + duration, 'note_off', {'note': pitch, 'velocity': 0, 'channel': channel}))
 
         # 按 tick 排序
-        events.sort(key=lambda x: (x[0], x[1] == 'note_off'))  # note_off 在同一 tick 优先处理
+        # 同一 tick 下必须先处理 note_off，再处理 note_on，
+        # 否则边界重复音（同一音高紧接着再次开始）会在读取时被吞掉。
+        events.sort(key=lambda x: (x[0], x[1] == 'note_on'))
 
         # 转换为 delta 消息
         prev_tick = 0

@@ -277,8 +277,8 @@ class HarmonyValidator:
                     overlap_start = max(start1, start2)
                     overlap_end = min(end1, end2)
 
-                    if overlap_end > overlap_start and pitch1 <= pitch2:
-                        # 声部交叉：高声部的音高低声部
+                    if overlap_end > overlap_start and pitch1 < pitch2:
+                        # 声部交叉：高声部的音高低于低声部
                         self.violations.append(HarmonyViolation(
                             type="voice_crossing",
                             tick=overlap_start,
@@ -321,11 +321,11 @@ class HarmonyValidator:
                     if interval > 12:  # 超过八度
                         self.violations.append(HarmonyViolation(
                             type="voice_overlap",
-                            tick=tick1,
+                            tick=start2,
                             channel1=ch,
                             channel2=ch,
                             interval=interval,
-                            description=f"Voice overlap in channel {ch}: jump of {interval} semitones at tick {tick1}"
+                            description=f"Voice overlap in channel {ch}: jump of {interval} semitones at tick {start2}"
                         ))
 
     def get_violations(self) -> List[HarmonyViolation]:

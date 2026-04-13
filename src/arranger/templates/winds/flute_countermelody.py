@@ -212,4 +212,48 @@ class FluteCountermelodyTemplate(BaseTemplate):
                     notes.append((current_tick, current_tick + duration, pitch, velocity, channel))
                     current_tick += eighth_note
 
+        total_measures = max(1, len(context.chord_per_measure))
+        min_activity_notes = max(2, total_measures // 12)
+
+        # 如果整首都没有生成到 motif，或者活跃度明显不足，
+        # 至少退化成稀疏的 color-tone，避免声明的 counter melody 声部完全失声。
+        if len(notes) < min_activity_notes:
+            n = context.time_signature_num
+            d = context.time_signature_den
+            if n % 3 == 0 and d == 8:
+                grid_kind = "pulse"
+            else:
+                grid_kind = "quarter"
+
+            fallback_measures = range(0, total_measures, max(1, total_measures // max(1, min_activity_notes)))
+            duration = int(max(eighth_note, measure_len * 0.4))
+            existing_starts = {start for start, _, _, _, _ in notes}
+
+            for measure_idx in fallback_measures:
+                if len(notes) >= min_activity_notes:
+                    break
+                chord_info = context.chord_per_measure.get(measure_idx)
+                if chord_info is None:
+                    continue
+                grid_positions = meter_grid(
+                    ticks_per_beat,
+                    (n, d),
+                    kind=grid_kind,
+                    measure_start=measure_idx * measure_len,
+                    measure_count=1,
+                    clip_to_measure=True,
+                )
+                if not grid_positions:
+                    continue
+                pitch = chord_info.third or chord_info.fifth or chord_info.root
+                while pitch < pitch_min:
+                    pitch += 12
+                while pitch > pitch_max:
+                    pitch -= 12
+                start_tick = grid_positions[0]
+                if start_tick in existing_starts:
+                    continue
+                notes.append((start_tick, start_tick + duration, pitch, velocity_base - 6, channel))
+                existing_starts.add(start_tick)
+
         return notes

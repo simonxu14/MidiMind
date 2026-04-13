@@ -116,6 +116,31 @@ class TestMidiWriterCreateTrack:
         program_changes = [msg for msg in track_data if msg[0] == "program_change"]
         assert len(program_changes) == 1
 
+    def test_create_track_preserves_repeated_boundary_pitch(self):
+        """同 tick 边界上的重复音高不应在重读时丢音"""
+        note_events = [
+            (0, 480, 60, 64, 0),
+            (480, 960, 60, 62, 0),
+        ]
+
+        track_data = MidiWriter.create_track_from_note_events(
+            track_name="Repeated",
+            note_events=note_events,
+            program=0,
+            channel=0,
+        )
+        midi_data = MidiWriter.write_midi(
+            tracks=[track_data],
+            ticks_per_beat=480,
+            tempo=120,
+            time_signature=(4, 4),
+        )
+
+        midi = MidiReader.read_midi(midi_data)
+        tracks = MidiReader.extract_track_messages(midi)
+
+        assert len(tracks[1].notes) == 2
+
 
 class TestMidiWriterTempoTrack:
     """测试 MidiWriter tempo track 创建"""

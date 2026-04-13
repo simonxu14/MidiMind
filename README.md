@@ -149,6 +149,26 @@ self._report_stats = {
 
 ---
 
+## 架构说明更新 (2026-04-03)
+
+`src/arranger/orchestrate_executor.py` 已经完成一轮 service 化重构，当前更多承担流程编排职责，具体逻辑已拆分到 `src/arranger/services/`：
+
+- `melody.py`: 旋律锁定
+- `harmony.py`: 和声分析与默认和声
+- `context_builder.py`: ArrangementContext 构建
+- `generation.py`: 模板选择与声部生成
+- `guards.py`: 护栏应用
+- `postprocess.py`: humanize 与按小节力度调整
+- `autofix_pipeline.py`: AutoFixer 集成
+- `percussion.py`: 自动打击乐生成
+- `reporting.py`: arrangement_report 汇总
+- `output_builder.py`: CC 注入与输出轨道构建
+- `executor_state.py`: executor 运行态初始化
+
+对应的定向测试已补充到 `tests/test_services.py`。
+
+本轮重构验证期间还修复了一处 AutoFixer 回归：在 voice-line regroup/flatten 流程中，伴奏音符的 `end_tick` 与 `velocity` 一度被错误重建为 0，导致 6/8 集成测试中的伴奏轨虽然存在但实际输出为静音事件。该问题现已修复，并新增服务层回归测试锁定。
+
 ## 功能特性
 
 ### 核心能力
@@ -176,7 +196,7 @@ self._report_stats = {
 cd /opt/midimind
 python3 -m venv venv
 source venv/bin/activate
-pip install mido pydantic fastapi uvicorn python-multipart anthropic
+python3 -m pip install -e ".[dev]"
 ```
 
 ### 2. 启动服务
@@ -186,8 +206,8 @@ export ANTHROPIC_API_KEY="your_api_key"
 export ANTHROPIC_BASE_URL="https://api.minimaxi.com/anthropic"
 export PYTHONPATH=/opt/midimind/src
 
-cd /opt/midimind/src
-python3 -m arranger.api --host 0.0.0.0 --port 8000
+cd /opt/midimind
+python3 -m uvicorn arranger.api:app --host 0.0.0.0 --port 8000
 ```
 
 ### 3. 访问 Web 界面
@@ -275,7 +295,7 @@ curl -X POST http://localhost:8000/arrange \
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
-                    输出: arranged.mid
+                    输出: arranged_<id>.mid
 ```
 
 ---

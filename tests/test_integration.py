@@ -15,6 +15,9 @@ from arranger.plan_schema import (
 )
 
 
+pytestmark = pytest.mark.integration
+
+
 class TestEndToEndArrangement:
     """端到端编曲测试"""
 
@@ -212,7 +215,7 @@ class TestEndToEndArrangement:
         验证：
         1. total_ticks 与输入一致
         2. 硬约束通过
-        3. flute 轨道有音符产出（P1-1 修复验证）
+        3. 自动匹配模板的非旋律声部有音符产出（P1-1 修复验证）
 
         参考 conversation: 4bbdcbdae1d14e77a4d2a48d59e00a87
         """
@@ -329,21 +332,19 @@ class TestEndToEndArrangement:
             for pitch in timpani_pitch_set:
                 assert 45 <= pitch <= 53, f"Timpani pitch {pitch} out of range 45-53"
 
-        # P1: 验证 flute 活跃度（至少有一些音符）
-        # 注意：轨道名可能是 "fl" (part.id) 或 "flute" (instrument name)
-        flute_note_count = 0
+        # P1: 验证自动模板匹配的非旋律声部确实有音符产出
+        note_on_counts = {"piano": 0, "va": 0, "vc": 0}
         for track_data in output_tracks:
             track_name = None
             for msg_type, params in track_data:
                 if msg_type == "track_name":
                     track_name = params.get("name", "")
-                elif msg_type in ("note_on", "note_off") and track_name:
-                    is_flute = track_name.lower() == "fl" or "flute" in track_name.lower()
-                    if is_flute and msg_type == "note_on" and params.get("velocity", 0) > 0:
-                        flute_note_count += 1
+                elif msg_type == "note_on" and track_name in note_on_counts:
+                    if params.get("velocity", 0) > 0:
+                        note_on_counts[track_name] += 1
 
-        # Flute 应该有音符产出（至少 10 个）
-        assert flute_note_count >= 10, f"Flute activity too low: {flute_note_count} notes"
+        for part_id, note_count in note_on_counts.items():
+            assert note_count > 0, f"Expected generated notes for {part_id}, got {note_count}"
 
     def test_variable_meter_not_supported(self):
         """

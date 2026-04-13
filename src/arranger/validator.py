@@ -27,6 +27,7 @@ from .plan_schema import (
     NoteEvent,
 )
 from .harmony_validator import HarmonyValidator
+from .config import INSTRUMENT_RANGES
 
 
 # ============ Validator 结果 ============
@@ -63,28 +64,6 @@ class ValidationResult:
             "all_passed": self.all_passed,
             "errors": self.errors,
         }
-
-
-# ============ 乐器音域 ============
-
-INSTRUMENT_RANGES = {
-    "violin": (55, 96),
-    "viola": (48, 81),
-    "cello": (36, 72),
-    "double_bass": (28, 52),
-    "harp": (23, 103),
-    "flute": (60, 96),
-    "oboe": (58, 89),
-    "clarinet": (50, 99),
-    "bassoon": (34, 64),
-    "horn": (40, 65),
-    "french_horn": (40, 65),
-    "trumpet": (52, 84),
-    "trombone": (40, 72),
-    "tuba": (27, 53),
-    "piano": (21, 108),
-    "timpani": (45, 53),
-}
 
 
 # ============ 主 Validator ============
@@ -281,14 +260,25 @@ class Validator:
                 message=f"Note count mismatch: input={len(input_notes)}, output={len(output_notes)}"
             )
 
-        for i, (in_note, out_note) in enumerate(zip(input_notes, output_notes)):
+        if input_notes == output_notes:
+            return CheckResult(passed=True, message="Melody identical")
+
+        sorted_input_notes = sorted(input_notes)
+        sorted_output_notes = sorted(output_notes)
+        if sorted_input_notes == sorted_output_notes:
+            return CheckResult(
+                passed=True,
+                message="Melody identical (order-insensitive polyphonic match)",
+            )
+
+        for i, (in_note, out_note) in enumerate(zip(sorted_input_notes, sorted_output_notes)):
             if in_note != out_note:
                 return CheckResult(
                     passed=False,
                     message=f"Note {i} mismatch: input={in_note}, output={out_note}"
                 )
 
-        return CheckResult(passed=True, message="Melody identical")
+        return CheckResult(passed=False, message="Melody notes differ")
 
     def _check_total_ticks(
         self,
@@ -339,9 +329,11 @@ class Validator:
         if not self.ensemble:
             return CheckResult(passed=True, message="No ensemble specified")
 
+        plan_tracks = self._filter_plan_tracks(output_tracks)
+
         # 期望的轨道数（不含 conductor track，因为 output_tracks 不包含它）
-        expected_parts = len([p for p in self.ensemble.parts if p.role != "melody"]) + 1  # +1 for melody
-        actual_parts = len(output_tracks)  # output_tracks 不包含 conductor track
+        expected_parts = len(self.ensemble.parts)
+        actual_parts = len(plan_tracks)
 
         if actual_parts != expected_parts:
             return CheckResult(
@@ -353,7 +345,7 @@ class Validator:
         # 使用 part.id 进行匹配（ASCII，不会冲突）
         for part in self.ensemble.parts:
             found = False
-            for track_data in output_tracks:
+            for track_data in plan_tracks:
                 track_name = None
                 program = None
                 channel = None
@@ -387,6 +379,23 @@ class Validator:
                 )
 
         return CheckResult(passed=True, message="Instrumentation OK")
+
+    def _filter_plan_tracks(
+        self,
+        output_tracks: List[List[Tuple[str, Dict]]],
+    ) -> List[List[Tuple[str, Dict]]]:
+        """Ignore system-generated helper tracks when validating against the explicit plan."""
+        filtered_tracks: List[List[Tuple[str, Dict]]] = []
+        for track_data in output_tracks:
+            track_name = ""
+            for msg_type, params in track_data:
+                if msg_type == "track_name":
+                    track_name = params.get("name", "")
+                    break
+            if track_name.startswith("auto_"):
+                continue
+            filtered_tracks.append(track_data)
+        return filtered_tracks
 
     def _check_midi_valid(
         self,

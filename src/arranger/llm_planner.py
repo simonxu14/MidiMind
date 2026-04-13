@@ -10,8 +10,9 @@ from __future__ import annotations
 import json
 import os
 import time
+import re
 from typing import Optional, Dict, Any, List
-from anthropic import Anthropic, NOT_GIVEN
+from anthropic import Anthropic
 
 from .plan_schema import (
     UnifiedPlan,
@@ -25,9 +26,11 @@ from .plan_schema import (
     OutputConfig,
     MidiOutputConfig,
     AnalyzeResponse,
+    RevisionIntent,
 )
 from .conversation import conversation_manager, MessageRole, LLMThought
 from .tracer import get_tracer
+from .plan_normalizer import normalize_plan
 
 
 class LLMPlanner:
@@ -306,8 +309,6 @@ template_name 是**必须**的，不能省略！
             target_size: 目标乐队规模（可选）
             previous_feedback: 上一版本的反馈（用于多轮优化）
         """
-        start_time = time.time()
-
         # 构建增强的用户提示
         user_prompt = self._build_user_prompt(analyze_result, user_intent, target_size, previous_feedback)
 
@@ -320,16 +321,7 @@ template_name 是**必须**的，不能省略！
         self.tracer.start_stage("plan_generation") if self.tracer else None
 
         try:
-            response = self.client.messages.create(
-                model="MiniMax-M2.7",
-                max_tokens=8192,
-                system=system_with_context,
-                messages=[
-                    {"role": "user", "content": user_prompt}
-                ]
-            )
-
-            duration_ms = int((time.time() - start_time) * 1000)
+            response, duration_ms = self._call_llm(system_with_context, user_prompt, 8192)
 
             # 解析响应 - MiniMax 可能返回不同格式
             # MiniMax 返回 [ThinkingBlock, TextBlock]，需要找到 TextBlock
@@ -392,12 +384,12 @@ template_name 是**必须**的，不能省略！
             plan_dict = json.loads(plan_text)
 
             # 验证并补充必要字段
-            plan_dict = self._validate_and_complete_plan(plan_dict, analyze_result)
+            plan_dict = normalize_plan(plan_dict, analyze_result)
 
             return UnifiedPlan(**plan_dict)
 
         except Exception as e:
-            duration_ms = int((time.time() - start_time) * 1000)
+            duration_ms = 0
 
             if self.tracer:
                 self.tracer.log_error("plan_generation", e)
@@ -416,7 +408,518 @@ template_name 是**必须**的，不能省略！
 
             # LLM 失败时不要静默 fallback，而是抛出错误让用户知道
             # fallback 方案不遵循用户的详细意图
-            raise Exception(f"LLM 编曲失败: {str(e)}。请检查 API 配置或重试。")
+            self._raise_planner_error("LLM 编曲失败，请检查 API 配置或重试", e)
+
+    def _extract_text_from_response(self, response: Any, error_prefix: str) -> str:
+        """Extract the first text payload from an Anthropic-style response."""
+        try:
+            if hasattr(response, "content") and response.content:
+                for content_block in response.content:
+                    if hasattr(content_block, "type") and content_block.type == "text":
+                        return content_block.text.strip()
+                    if hasattr(content_block, "text"):
+                        return content_block.text.strip()
+                return str(response.content)
+            return str(response)
+        except Exception as exc:
+            raise ValueError(f"{error_prefix}: {exc}, response={response}") from exc
+
+    def _strip_json_fence(self, text: str) -> str:
+        """Remove markdown code fences when the model wraps JSON in them."""
+        if "```json" in text:
+            return text.split("```json", 1)[1].split("```", 1)[0]
+        if "```" in text:
+            return text.split("```", 1)[1].split("```", 1)[0]
+        return text
+
+    def _response_tokens_used(self, response: Any) -> int:
+        """Best-effort token usage extraction across provider payload shapes."""
+        try:
+            usage = getattr(response, "usage", None)
+            if not usage:
+                return 0
+            return getattr(usage, "total_tokens", 0) or (
+                getattr(usage, "input_tokens", 0) + getattr(usage, "output_tokens", 0)
+            )
+        except Exception:
+            return 0
+
+    def _parse_json_response(self, response: Any, error_prefix: str) -> Dict[str, Any]:
+        """Extract text, strip optional fences, and decode JSON."""
+        response_text = self._extract_text_from_response(response, error_prefix)
+        return json.loads(self._strip_json_fence(response_text))
+
+    def _call_llm(self, system_prompt: str, user_prompt: str, max_tokens: int) -> tuple[Any, int]:
+        """Issue a single LLM request and return the raw response plus elapsed milliseconds."""
+        start_time = time.time()
+        response = self.client.messages.create(
+            model="MiniMax-M2.7",
+            max_tokens=max_tokens,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        duration_ms = int((time.time() - start_time) * 1000)
+        return response, duration_ms
+
+    def _raise_planner_error(self, prefix: str, error: Exception) -> None:
+        """Raise a user-facing planner exception with a consistent message format."""
+        raise Exception(f"{prefix}: {error}") from error
+
+    def _summarize_plan_parts(self, plan: Optional[UnifiedPlan]) -> str:
+        """Return a compact bullet list of current ensemble parts for prompt context."""
+        if not plan or not plan.ensemble or not plan.ensemble.parts:
+            return "（暂无）"
+        return "\n".join(
+            f"- {part.id}: {part.instrument} ({part.role})"
+            for part in plan.ensemble.parts
+        )
+
+    def _build_revision_analysis_prompt(self, user_message: str, current_plan: UnifiedPlan) -> str:
+        """Build the user prompt used to classify revision-vs-regenerate intent."""
+        current_parts_str = self._summarize_plan_parts(current_plan)
+        return f"""## 用户最新消息
+{user_message}
+
+## 当前编曲方案
+现有声部：
+{current_parts_str}
+
+请判断用户的意图是全新创作还是基于现有方案修改。
+"""
+
+    def _build_add_part_prompt(self, existing_parts_str: str, user_instruction: str) -> str:
+        """Build the prompt for additive revisions."""
+        add_part_prompt = """你是一位顶级的乐队编曲大师。用户的编曲方案已经有一个基础，现在需要**在现有基础上添加新声部**。
+
+## 现有方案
+现有声部：
+{existing_parts_str}
+
+## 用户的新需求
+{user_instruction}
+
+## 你的任务
+在现有方案基础上，添加用户要求的新声部。
+- **保留所有现有声部，不要删除或修改它们**
+- 只添加新声部
+- 确保新声部与现有方案和谐搭配
+- 注意 channel 不能冲突（melody 用 channel 0）
+
+## 重要
+1. 只输出**完整的** UnifiedPlan JSON，包含**所有声部**（原有的 + 新增的）
+2. 每个声部都必须有 id, name, role, instrument, midi, template_name, template_params
+3. **不要省略任何字段**
+
+请直接输出 JSON，不要有其他文字。
+"""
+        return add_part_prompt.format(existing_parts_str=existing_parts_str, user_instruction=user_instruction)
+
+    def _build_modify_part_prompt(self, base_plan: UnifiedPlan, target_part_id: str, user_instruction: str) -> str:
+        """Build the prompt for single-part modifications."""
+        modify_part_prompt = """你是一位顶级的乐队编曲大师。用户的编曲方案中有一个声部需要修改。
+
+## 现有方案
+{existing_plan_json}
+
+## 目标声部
+需要修改的声部 ID: {target_part_id}
+
+## 用户的新需求
+{user_instruction}
+
+## 你的任务
+根据用户的新需求，修改指定声部的配置（如 template_name、template_params、role 等）。
+- **保留所有其他声部不变**
+- 只修改 target_part_id 对应的声部
+- 确保修改后的配置合理可行
+
+## 重要
+1. 只输出**完整的** UnifiedPlan JSON，包含**所有声部**
+2. 每个声部都必须有 id, name, role, instrument, midi, template_name, template_params
+3. **不要省略任何字段**
+
+请直接输出 JSON，不要有其他文字。
+"""
+        return modify_part_prompt.format(
+            existing_plan_json=json.dumps(base_plan.model_dump(), indent=2, ensure_ascii=False),
+            target_part_id=target_part_id,
+            user_instruction=user_instruction,
+        )
+
+    def _normalize_message_for_matching(self, user_message: str) -> str:
+        """Normalize user text for coarse part-name matching heuristics."""
+        lowered = user_message.lower()
+        lowered = lowered.replace("_", " ").replace("-", " ")
+        return re.sub(r"\s+", " ", lowered)
+
+    def _instrument_aliases(self, instrument: str) -> List[str]:
+        """Return common English/Chinese aliases for instrument matching."""
+        alias_map = {
+            "piano": ["钢琴"],
+            "violin": ["小提琴"],
+            "viola": ["中提琴"],
+            "cello": ["大提琴"],
+            "double_bass": ["低音提琴", "贝斯"],
+            "flute": ["长笛", "笛子"],
+            "oboe": ["双簧管"],
+            "clarinet": ["单簧管", "黑管"],
+            "bassoon": ["巴松"],
+            "horn": ["圆号"],
+            "trumpet": ["小号"],
+            "trombone": ["长号"],
+            "tuba": ["大号"],
+            "timpani": ["定音鼓"],
+        }
+        return [instrument.lower(), *alias_map.get(instrument.lower(), [])]
+
+    def _ordinal_aliases_for_part(self, part: PartSpec) -> List[str]:
+        """Return ordinal aliases like '第一小提琴' for multi-part instruments."""
+        aliases: List[str] = []
+        instrument_aliases = self._instrument_aliases(part.instrument)
+        id_lower = part.id.lower()
+        name_lower = part.name.lower()
+
+        ordinal_map = {
+            "1": ["第一", "一", "1"],
+            "2": ["第二", "二", "2"],
+            "3": ["第三", "三", "3"],
+            "4": ["第四", "四", "4"],
+        }
+
+        ordinal_key = None
+        for key in ordinal_map:
+            if id_lower.endswith(key) or f" {key}" in name_lower:
+                ordinal_key = key
+                break
+
+        roman_ordinals = {
+            " i": "1",
+            " ii": "2",
+            " iii": "3",
+            " iv": "4",
+        }
+        if ordinal_key is None:
+            for marker, key in roman_ordinals.items():
+                if marker in name_lower:
+                    ordinal_key = key
+                    break
+
+        if ordinal_key is None:
+            return aliases
+
+        for ordinal_alias in ordinal_map[ordinal_key]:
+            for instrument_alias in instrument_aliases:
+                if instrument_alias.isascii():
+                    continue
+                aliases.append(f"{ordinal_alias}{instrument_alias}")
+                aliases.append(f"{instrument_alias}{ordinal_alias}")
+
+        return aliases
+
+    def _part_aliases(self, part: PartSpec) -> List[str]:
+        """Return coarse aliases used to infer target parts from user language."""
+        aliases = [part.id.lower(), part.name.lower()]
+        aliases.extend(self._instrument_aliases(part.instrument))
+        aliases.extend(self._ordinal_aliases_for_part(part))
+        return list(dict.fromkeys(alias for alias in aliases if alias))
+
+    def _infer_candidate_target_part_ids(
+        self,
+        user_message: str,
+        current_plan: UnifiedPlan,
+    ) -> List[str]:
+        """Return candidate target part ids ordered by matching confidence."""
+        normalized_message = self._normalize_message_for_matching(user_message)
+        parts = current_plan.ensemble.parts if current_plan.ensemble else []
+
+        def ordered_unique(matches: List[str]) -> List[str]:
+            return list(dict.fromkeys(matches))
+
+        exact_matches = [
+            part.id
+            for part in parts
+            if part.id.lower() in normalized_message or part.name.lower() in normalized_message
+        ]
+        if exact_matches:
+            return ordered_unique(exact_matches)
+
+        ordinal_matches = [
+            part.id
+            for part in parts
+            if any(alias in normalized_message for alias in self._ordinal_aliases_for_part(part))
+        ]
+        if ordinal_matches:
+            return ordered_unique(ordinal_matches)
+
+        instrument_matches = [
+            part.id
+            for part in parts
+            if any(alias in normalized_message for alias in self._instrument_aliases(part.instrument))
+        ]
+        return ordered_unique(instrument_matches)
+
+    def _infer_revision_target_part_id(
+        self,
+        user_message: str,
+        current_plan: UnifiedPlan,
+    ) -> Optional[str]:
+        """Infer the most likely target part from the user message when the model omits it."""
+        candidate_ids = self._infer_candidate_target_part_ids(user_message, current_plan)
+        if len(candidate_ids) == 1:
+            return candidate_ids[0]
+        return None
+
+    def _message_revision_signals(self, user_message: str) -> Dict[str, bool]:
+        """Detect coarse revision-action signals from a user message."""
+        normalized_message = self._normalize_message_for_matching(user_message)
+        add_keywords = ["加", "添加", "增加", "添", "再来一个", "加上", "换成"]
+        remove_keywords = ["删", "删除", "去掉", "移除", "不要", "拿掉"]
+        modify_keywords = ["改", "修改", "更", "调整", "弱一点", "强一点", "复杂", "简单", "密一点", "写密", "写得更密", "柔和一点", "亮一点"]
+
+        return {
+            "add": any(keyword in normalized_message for keyword in add_keywords),
+            "remove": any(keyword in normalized_message for keyword in remove_keywords),
+            "modify": any(keyword in normalized_message for keyword in modify_keywords),
+        }
+
+    def _has_mixed_revision_signals(self, user_message: str) -> bool:
+        """Return True when a message appears to request multiple revision actions at once."""
+        signals = self._message_revision_signals(user_message)
+        return sum(1 for active in signals.values() if active) > 1
+
+    def _infer_revision_type_from_message(self, user_message: str) -> Optional[str]:
+        """Fallback classifier for revision type when the model response is unavailable."""
+        signals = self._message_revision_signals(user_message)
+        if signals["add"]:
+            return "add"
+        if signals["remove"]:
+            return "remove"
+        if signals["modify"]:
+            return "modify"
+        return None
+
+    def _normalize_revision_intent(
+        self,
+        result_dict: Dict[str, Any],
+        user_message: str,
+        current_plan: UnifiedPlan,
+    ) -> RevisionIntent:
+        """Coerce raw model output into a safer RevisionIntent contract."""
+        is_revision = bool(result_dict.get("is_revision", False))
+        revision_type = result_dict.get("revision_type")
+        if revision_type not in {"add", "remove", "modify"}:
+            revision_type = None
+
+        target_part_id = result_dict.get("target_part_id")
+        inferred_target_candidates = (
+            self._infer_candidate_target_part_ids(user_message, current_plan)
+            if revision_type in {"remove", "modify"} or is_revision
+            else []
+        )
+        if revision_type in {"remove", "modify"} and not target_part_id:
+            target_part_id = self._infer_revision_target_part_id(user_message, current_plan)
+
+        if revision_type == "add":
+            target_part_id = None
+
+        if is_revision and revision_type is None:
+            revision_type = self._infer_revision_type_from_message(user_message)
+
+        if is_revision and self._has_mixed_revision_signals(user_message):
+            is_revision = False
+            revision_type = None
+            target_part_id = None
+
+        if is_revision and revision_type in {"remove", "modify"} and len(inferred_target_candidates) > 1:
+            is_revision = False
+            revision_type = None
+            target_part_id = None
+
+        if is_revision and revision_type in {"remove", "modify"} and not target_part_id:
+            # Missing target means the safest action is to fall back to a fresh generation.
+            is_revision = False
+            revision_type = None
+
+        return RevisionIntent(
+            is_revision=is_revision,
+            revision_type=revision_type,
+            target_part_id=target_part_id,
+            instruction=result_dict.get("instruction", user_message),
+        )
+
+    REVISION_ANALYSIS_PROMPT = """你是一位专业的音乐编曲顾问。你的任务是根据用户的最新消息和当前编曲方案，判断用户是想要：
+
+1. **全新创作**：用户要求从头开始编一个完全不同的方案（如"我想换一个古典交响乐版本"）
+2. **基于现有方案修改**：用户想在当前方案基础上进行增量修改（如"加一个钢琴"、"把提琴部分改得更复杂"）
+
+## 判断规则
+
+**全新创作的信号**：
+- 用户明确说"重新"、"换一个"、"不要这个了"、"从头来"
+- 用户要求的风格/规模与当前方案完全不同
+- 用户上传了新的 MIDI 文件并要求重新编曲
+
+**基于现有方案修改的信号**：
+- 用户提到"加..."、"添..."、"再来一个..."
+- 用户说"把...改..."、"...更...一些"
+- 用户说"在基础上..."、"继续..."、"加上..."
+- 用户只是调整参数（如"钢琴再复杂些"）
+
+## 输出格式
+
+请直接输出 JSON，不要有任何解释文字：
+
+```json
+{
+  "is_revision": true/false,
+  "revision_type": "add"/"remove"/"modify"/null,
+  "target_part_id": "具体声部ID或null",
+  "instruction": "用一句话描述用户的修改要求"
+}
+```
+
+- 如果 is_revision=false，revision_type 和 target_part_id 都设为 null
+- 如果是 add，说明要新增什么声部
+- 如果是 remove/modify，说明要操作哪个现有声部
+"""
+
+    def analyze_revision_intent(
+        self,
+        user_message: str,
+        current_plan: UnifiedPlan
+    ) -> RevisionIntent:
+        """
+        分析用户消息，判断是全新创作还是基于现有方案的修改
+
+        Args:
+            user_message: 用户发送的最新消息
+            current_plan: 当前最新的编曲方案
+
+        Returns:
+            RevisionIntent：包含是否为修改请求以及修改类型
+        """
+        prompt = self._build_revision_analysis_prompt(user_message, current_plan)
+
+        try:
+            response, duration_ms = self._call_llm(self.REVISION_ANALYSIS_PROMPT, prompt, 1024)
+
+            result_dict = self._parse_json_response(response, "Failed to parse revision analysis response")
+
+            return self._normalize_revision_intent(result_dict, user_message, current_plan)
+
+        except Exception as e:
+            duration_ms = 0
+
+            # 如果分析失败，默认认为是全新创作（保守策略）
+            # 或者可以根据消息内容简单判断
+            simple_keywords = ["重新", "换一个", "不要这个", "从头", "新做一个", "另做一个"]
+            is_likely_revision = not any(kw in user_message for kw in simple_keywords)
+            inferred_type = self._infer_revision_type_from_message(user_message) if is_likely_revision else None
+            inferred_target_candidates = (
+                self._infer_candidate_target_part_ids(user_message, current_plan)
+                if inferred_type in {"remove", "modify"}
+                else []
+            )
+            inferred_target = (
+                inferred_target_candidates[0]
+                if len(inferred_target_candidates) == 1
+                else None
+            )
+
+            if is_likely_revision and self._has_mixed_revision_signals(user_message):
+                is_likely_revision = False
+                inferred_type = None
+                inferred_target = None
+
+            if is_likely_revision and inferred_type in {"remove", "modify"} and len(inferred_target_candidates) > 1:
+                is_likely_revision = False
+                inferred_type = None
+                inferred_target = None
+
+            if is_likely_revision and inferred_type in {"remove", "modify"} and not inferred_target:
+                is_likely_revision = False
+                inferred_type = None
+
+            return RevisionIntent(
+                is_revision=is_likely_revision,
+                revision_type=inferred_type,
+                target_part_id=inferred_target,
+                instruction=user_message,
+            )
+
+    def apply_revision_for_add(
+        self,
+        base_plan: UnifiedPlan,
+        user_instruction: str,
+        existing_parts_str: str,
+        analyze_result=None
+    ) -> UnifiedPlan:
+        """
+        新增声部：根据用户指令在现有方案基础上添加新声部
+
+        Args:
+            base_plan: 现有编曲方案
+            user_instruction: 用户指令（如"加一个钢琴"）
+            existing_parts_str: 现有声部的描述字符串
+            analyze_result: MIDI 分析结果
+
+        Returns:
+            新的 UnifiedPlan
+        """
+        prompt = self._build_add_part_prompt(existing_parts_str, user_instruction)
+
+        try:
+            response, duration_ms = self._call_llm(self.SYSTEM_PROMPT, prompt, 8192)
+
+            plan_dict = self._parse_json_response(response, "Failed to parse add-part response")
+
+            # 验证并补充必要字段
+            if analyze_result:
+                plan_dict = normalize_plan(plan_dict, analyze_result)
+            else:
+                plan_dict = normalize_plan(plan_dict, None)
+
+            return UnifiedPlan(**plan_dict)
+
+        except Exception as e:
+            self._raise_planner_error("LLM 添加声部失败", e)
+
+    def apply_revision_for_modify(
+        self,
+        base_plan: UnifiedPlan,
+        target_part_id: str,
+        user_instruction: str,
+        analyze_result=None
+    ) -> UnifiedPlan:
+        """
+        修改声部：根据用户指令修改指定声部的配置
+
+        Args:
+            base_plan: 现有编曲方案
+            target_part_id: 要修改的声部 ID
+            user_instruction: 用户指令（如"把钢琴部分改得更复杂"）
+            analyze_result: MIDI 分析结果
+
+        Returns:
+            新的 UnifiedPlan
+        """
+        prompt = self._build_modify_part_prompt(base_plan, target_part_id, user_instruction)
+
+        try:
+            response, duration_ms = self._call_llm(self.SYSTEM_PROMPT, prompt, 8192)
+
+            plan_dict = self._parse_json_response(response, "Failed to parse modify-part response")
+
+            # 验证并补充必要字段
+            if analyze_result:
+                plan_dict = normalize_plan(plan_dict, analyze_result)
+            else:
+                plan_dict = normalize_plan(plan_dict, None)
+
+            return UnifiedPlan(**plan_dict)
+
+        except Exception as e:
+            self._raise_planner_error("LLM 修改声部失败", e)
 
     def _build_user_prompt(
         self,
@@ -469,190 +972,6 @@ template_name 是**必须**的，不能省略！
         ])
 
         return "\n".join(prompt_parts)
-
-    def _validate_and_complete_plan(self, plan_dict: Dict, analyze_result: AnalyzeResponse) -> Dict:
-        """
-        验证并补充计划字段
-
-        LLM 可能返回各种格式，这里做标准化处理
-        """
-
-        # 自动检测 source_track_ref：使用 melody_candidates 中分数最高的轨道
-        auto_source_track = "0"
-        if analyze_result and hasattr(analyze_result, 'melody_candidates') and analyze_result.melody_candidates:
-            # 找到分数最高的候选（这是实际的旋律轨道）
-            top_candidate = max(analyze_result.melody_candidates, key=lambda c: c.score)
-            auto_source_track = str(top_candidate.track_index)
-
-        # 构建完整的 plan 结构
-        complete_plan = {
-            "schema_version": "1.0",
-            "transform": {
-                "type": plan_dict.get("transform", {}).get("type", "orchestration"),
-                "preserve_structure": plan_dict.get("transform", {}).get("preserve_structure", True),
-                "preserve_order": plan_dict.get("transform", {}).get("preserve_order", True),
-            },
-            "ensemble": {
-                "name": plan_dict.get("ensemble", {}).get("name", "custom_ensemble"),
-                "size": plan_dict.get("ensemble", {}).get("size", "medium"),
-                "target_size": len(plan_dict.get("ensemble", {}).get("parts", [])),
-                "parts": []
-            },
-            "harmony_context": {
-                "method": "measure_pitchset_triadish",
-                "granularity": "per_measure"
-            },
-            # P1-Fix: 显式输出 arrangement 字段，避免 None 导致系统使用隐式默认值
-            "arrangement": plan_dict.get("arrangement") or {
-                "reduce_ratio": 0.6,
-                "onset_avoidance_action": "scale_velocity",
-                "register_separation": True,
-                "min_semitones": 5,
-                "velocity_caps_by_mode": {},
-                "cc_by_mode": {},
-                "humanize": {"enabled": False},
-                "percussion": {"enabled": True, "phrase_block": 8, "density": 0.5},
-            },
-            "constraints": {
-                "lock_melody_events": {
-                    "enabled": True,
-                    # 优先使用 LLM 指定的值，否则使用自动检测的值
-                    "source_track_ref": plan_dict.get("constraints", {}).get("lock_melody_events", {}).get("source_track_ref") or auto_source_track,
-                    "source_track_selection_mode": "auto"
-                },
-                "keep_total_ticks": True,
-                # P1-Fix: 显式输出 guards 字段，避免 None 导致系统使用隐式默认值
-                "guards": plan_dict.get("constraints", {}).get("guards") or {
-                    "velocity_caps": {},
-                    "avoid_melody_onsets": True,
-                    "onset_window_ticks": 120,
-                    "onset_avoidance_action": "scale_velocity",
-                    "register_separation": True,
-                },
-            },
-            "outputs": {
-                "midi": {
-                    "enabled": True,
-                    "filename": "arranged.mid"
-                }
-            }
-        }
-
-        # 处理 parts
-        raw_parts = plan_dict.get("ensemble", {}).get("parts", [])
-        if not raw_parts and "parts" in plan_dict:
-            raw_parts = plan_dict.get("parts", [])
-
-        used_channels = set()
-        for part in raw_parts:
-            # 标准化每个 part
-            standardized_part = {
-                "id": part.get("id", f"part_{len(complete_plan['ensemble']['parts'])}"),
-                "name": part.get("name", "Unnamed"),
-                "role": part.get("role", "accompaniment"),
-                "instrument": part.get("instrument", "piano"),
-                "midi": {
-                    "channel": part.get("midi", {}).get("channel", 0),
-                    "program": part.get("midi", {}).get("program", 0)
-                }
-            }
-
-            # 处理 template
-            if "template" in part:
-                standardized_part["template_name"] = part["template"]
-                standardized_part["template_params"] = part.get("template_params") or {}
-            elif "template_name" in part:
-                standardized_part["template_name"] = part["template_name"]
-                standardized_part["template_params"] = part.get("template_params") or {}
-            else:
-                standardized_part["template_name"] = "unknown"
-                standardized_part["template_params"] = {}
-
-            # 分配 channel
-            ch = standardized_part["midi"]["channel"]
-            if ch in used_channels:
-                for c in range(16):
-                    if c not in used_channels:
-                        standardized_part["midi"]["channel"] = c
-                        break
-            used_channels.add(standardized_part["midi"]["channel"])
-
-            complete_plan["ensemble"]["parts"].append(standardized_part)
-
-        # 更新 target_size
-        complete_plan["ensemble"]["target_size"] = len(complete_plan["ensemble"]["parts"])
-
-        # 确保 melody 在 channel 0
-        melody_parts = [p for p in complete_plan["ensemble"]["parts"] if p.get("role") == "melody"]
-        if melody_parts and melody_parts[0]["midi"]["channel"] != 0:
-            # 找到 channel 0 的 part 并交换
-            for p in complete_plan["ensemble"]["parts"]:
-                if p["midi"]["channel"] == 0:
-                    p["midi"]["channel"] = melody_parts[0]["midi"]["channel"]
-                    break
-            melody_parts[0]["midi"]["channel"] = 0
-
-        return complete_plan
-
-    def _get_intent_based_fallback(self, user_intent: str, target_size: Optional[int]) -> UnifiedPlan:
-        """根据意图生成 fallback 方案"""
-
-        # 分析用户意图
-        is_soft = any(kw in user_intent for kw in ["轻", "柔", "软", "温柔", "抒情"])
-        is_popular = any(kw in user_intent for kw in ["流行", "现代", "Jazz", "pop"])
-        is_classical = any(kw in user_intent for kw in ["古典", "交响", "大气"])
-        is_small = any(kw in user_intent for kw in ["小", "简单", "精简"])
-
-        # 确定规模
-        if target_size is None:
-            if is_small:
-                target_size = 4
-            elif is_classical:
-                target_size = 15
-            else:
-                target_size = 10
-
-        # 确定乐器配置
-        if is_popular or "钢琴" in user_intent:
-            parts = self._get_popular_ensemble(target_size)
-        elif is_soft:
-            parts = self._get_chamber_ensemble(target_size)
-        elif is_classical:
-            parts = self._get_symphonic_ensemble(target_size)
-        else:
-            parts = self._get_chamber_ensemble(target_size)
-
-        return UnifiedPlan(
-            schema_version="1.0",
-            transform=TransformSpec(
-                type="orchestration",
-                preserve_structure=True,
-                preserve_order=True
-            ),
-            ensemble=EnsembleConfig(
-                name=f"ensemble_{target_size}",
-                size="small" if target_size <= 4 else ("medium" if target_size <= 10 else "large"),
-                target_size=target_size,
-                parts=[PartSpec(**p) for p in parts]
-            ),
-            harmony_context=HarmonyContext(
-                method="measure_pitchset_triadish",
-                granularity="per_measure"
-            ),
-            constraints=Constraints(
-                lock_melody_events=LockMelodyConfig(
-                    enabled=True,
-                    source_track_ref="0"
-                ),
-                keep_total_ticks=True
-            ),
-            outputs=OutputConfig(
-                midi=MidiOutputConfig(
-                    enabled=True,
-                    filename="arranged.mid"
-                )
-            )
-        )
 
     def _get_popular_ensemble(self, size: int) -> List[Dict]:
         """流行风格乐队配置"""
